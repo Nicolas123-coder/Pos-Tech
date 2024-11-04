@@ -18,7 +18,6 @@ namespace Application.Services
             _validator = validator;
         }
 
-        // Adiciona um novo contato
         public async Task<Contact> AddContactAsync(ContactDTO contactDto)
         {
             var validationResult = await _validator.ValidateAsync(contactDto);
@@ -31,7 +30,6 @@ namespace Application.Services
             return await _contactRepository.AddContactAsync(contact);
         }
 
-        // Obtém todos os contatos, ou contatos por região se especificado
         public async Task<IEnumerable<Contact>> GetContactsByRegionAsync(string? regionCode = null)
         {
             return regionCode == null
@@ -39,13 +37,11 @@ namespace Application.Services
                 : await _contactRepository.GetContactsByRegionAsync(regionCode);
         }
 
-        // Obtém um contato específico por ID
         public async Task<Contact?> GetContactByIdAsync(int contactId)
         {
             return await _contactRepository.GetContactByIdAsync(contactId);
         }
 
-        // Atualiza um contato existente
         public async Task<Contact> UpdateContactAsync(int contactId, ContactDTO contactDto)
         {
             var contact = await _contactRepository.GetContactByIdAsync(contactId);
@@ -68,7 +64,6 @@ namespace Application.Services
             return await _contactRepository.UpdateContactAsync(contact);
         }
 
-        // Exclui um contato por ID
         public async Task DeleteContactAsync(int contactId)
         {
             var contact = await _contactRepository.GetContactByIdAsync(contactId);

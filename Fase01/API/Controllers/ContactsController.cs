@@ -18,16 +18,14 @@ namespace API.Controllers
             _logger = logger;
         }
 
-        // Endpoint para obter todos os contatos
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
             _logger.LogInformation("Obtendo todos os contatos");
-            var contacts = await _contactService.GetContactsByRegionAsync(null); // Passa null para obter todos
+            var contacts = await _contactService.GetContactsByRegionAsync(null);
             return Ok(contacts);
         }
 
-        // Endpoint para obter um contato específico por ID
         [HttpGet("{id}", Name = "GetContactById")]
         public async Task<IActionResult> GetContactById(int id)
         {
@@ -40,7 +38,6 @@ namespace API.Controllers
             return Ok(contact);
         }
 
-        // Endpoint para obter contatos por região (DDD)
         [HttpGet("region/{regionCode}", Name = "GetContactsByRegion")]
         public async Task<IActionResult> GetContactsByRegion(string regionCode)
         {
@@ -49,7 +46,6 @@ namespace API.Controllers
             return Ok(contacts);
         }
 
-        // Endpoint para adicionar um novo contato
         [HttpPost]
         public async Task<IActionResult> AddContact([FromBody] ContactDTO contactDto)
         {
@@ -61,11 +57,10 @@ namespace API.Controllers
             }
             catch (ValidationException ex)
             {
-                return BadRequest(ex.Errors); // Retorna erros de validação
+                return BadRequest(ex.Errors);
             }
         }
 
-        // Endpoint para atualizar um contato existente
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateContact(int id, [FromBody] ContactDTO contactDto)
         {
@@ -81,11 +76,10 @@ namespace API.Controllers
             }
             catch (ValidationException ex)
             {
-                return BadRequest(ex.Errors); // Retorna erros de validação
+                return BadRequest(ex.Errors);
             }
         }
 
-        // Endpoint para excluir um contato por ID
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteContact(int id)
         {

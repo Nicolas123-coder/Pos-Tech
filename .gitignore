@@ -1,0 +1,45 @@
+# Arquivos de build
+bin/
+obj/
+
+# Configurações específicas de usuário
+.vscode/
+*.user
+*.rsuser
+*.suo
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.pid
+*.gz
+*.orig
+
+# Informações de cache e de depuração
+*.mdb
+*.pdb
+*.opendb
+*.log
+*.appcache
+
+# Configurações específicas de IDE
+.idea/
+.vscode/
+.vscode/*
+
+# Dependências do NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+
+# Cache do Visual Studio
+.vs/
+.vscode/
+
+# Arquivos de publicação do Visual Studio
+publish/
+publishoutput/

@@ -13,8 +13,7 @@ namespace Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configurações adicionais de mapeamento, se necessário
-            modelBuilder.Entity<Contact>().HasKey(c => c.Id); // Chave primária
+            modelBuilder.Entity<Contact>().HasKey(c => c.Id);
         }
     }
 }

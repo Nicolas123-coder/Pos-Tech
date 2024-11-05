@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Application.Services
 {
-    public class ContactService
+    public class ContactService : IContactService
     {
         private readonly IContactRepository _contactRepository;
         private readonly IValidator<ContactDTO> _validator;

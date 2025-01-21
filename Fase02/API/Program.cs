@@ -42,6 +42,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+if (app.Environment.IsProduction() || app.Environment.IsStaging())
+{
+    app.Services.MigrateDatabase();
+}
+
 app.UseCustomMetrics();
 app.UseHttpsRedirection();
 app.UseAuthorization();

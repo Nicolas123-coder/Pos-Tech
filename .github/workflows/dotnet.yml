@@ -18,25 +18,43 @@ jobs:
           ACCEPT_EULA: Y
         ports:
           - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: '8.0.x'
+    
+    - name: Display working directory and files
+      run: |
+        pwd
+        ls -la
+        
+    - name: Change to project directory
+      run: cd Fase02
         
     - name: Restore dependencies
+      working-directory: ./Fase02
       run: dotnet restore
       
     - name: Build
+      working-directory: ./Fase02
       run: dotnet build --no-restore --configuration Release
       
     - name: Run Unit Tests
+      working-directory: ./Fase02
       run: dotnet test --no-build --verbosity normal --configuration Release --filter Category=Unit
       
     - name: Run Integration Tests
+      working-directory: ./Fase02
       run: dotnet test --no-build --verbosity normal --configuration Release --filter Category=Integration
       env:
         ConnectionStrings__DefaultConnection: "Server=localhost;Database=ContactsDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;"

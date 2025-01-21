@@ -1,5 +1,4 @@
 name: .NET CI/CD
-
 on:
   push:
     branches: [ main ]
@@ -16,31 +15,35 @@ jobs:
         env:
           SA_PASSWORD: YourStrong@Passw0rd
           ACCEPT_EULA: Y
+          MSSQL_PID: Express
         ports:
           - 1433:1433
         options: >-
           --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q 'SELECT 1'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-interval 20s
+          --health-timeout 10s
+          --health-retries 10
+          --health-start-period 60s
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
     
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: '8.0.x'
     
-    - name: Display working directory and files
+    - name: Wait for SQL Server to be ready
       run: |
-        pwd
-        ls -la
-        
-    - name: Change to project directory
-      run: cd Fase02
-        
+        for i in {1..60}; do
+          if sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" &> /dev/null; then
+            echo "SQL Server is ready"
+            break
+          fi
+          echo "Waiting for SQL Server to be ready..."
+          sleep 1
+        done
+    
     - name: Restore dependencies
       working-directory: ./Fase02
       run: dotnet restore
@@ -55,6 +58,7 @@ jobs:
       
     - name: Run Integration Tests
       working-directory: ./Fase02
-      run: dotnet test --no-build --verbosity normal --configuration Release --filter Category=Integration
+      run: |
+        dotnet test --no-build --verbosity normal --configuration Release --filter Category=Integration
       env:
         ConnectionStrings__DefaultConnection: "Server=localhost;Database=ContactsDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;"

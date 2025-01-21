@@ -1,0 +1,41 @@
+name: .NET CI/CD
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          SA_PASSWORD: YourStrong@Passw0rd
+          ACCEPT_EULA: Y
+        ports:
+          - 1433:1433
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore Fase02.sln
+      
+    - name: Build
+      run: dotnet build Fase02.sln --no-restore --configuration Release
+      
+    - name: Run Unit Tests
+      run: dotnet test Fase02.sln --no-build --verbosity normal --configuration Release --filter Category=Unit
+      
+    - name: Run Integration Tests
+      run: dotnet test Fase02.sln --no-build --verbosity normal --configuration Release --filter Category=Integration
+      env:
+        ConnectionStrings__DefaultConnection: "Server=localhost;Database=ContactsDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;"

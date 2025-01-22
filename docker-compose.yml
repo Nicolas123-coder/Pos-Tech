@@ -1,28 +1,64 @@
-version: '3.8'
+networks:
+  monitoring:
+  app-network:
+
+volumes:
+  contacts_api:
+  sqlserver_data:
+  prometheus_data:
+  grafana_data:
+
 services:
-  sql:
-    image: mcr.microsoft.com/mssql/server:2019-latest
+  contacts-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contacts-api
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      - Prometheus__MetricsPath=/metrics
+      - ASPNETCORE_URLS=http://+:80
+    volumes:
+      - ./Fase02:/src/Fase02
+      - contacts_api:/app
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    networks:
+      - app-network
+      - monitoring
+    restart: unless-stopped
+
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql-server
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=YourStrong@Passw0rd
       - MSSQL_PID=Express
     ports:
       - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - app-network
     healthcheck:
-      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "YourStrong@Passw0rd" -Q "SELECT 1" || exit 1
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "YourStrong@Passw0rd", "-Q", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s
-    networks:
-      - monitoring
+    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./Fase02/Monitoring/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -31,29 +67,26 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
     networks:
       - monitoring
+    restart: unless-stopped
     depends_on:
-      - sql
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - contacts-api
 
   grafana:
     image: grafana/grafana:latest
+    container_name: grafana
     ports:
       - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    depends_on:
-      - prometheus
-    networks:
-      - monitoring
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-
-volumes:
-  prometheus_data:
-  grafana_data:
-
-networks:
-  monitoring:
-    driver: bridge
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - ./Fase02/Monitoring/Grafana/provisioning:/etc/grafana/provisioning
+      - ./Fase02/Monitoring/Grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus

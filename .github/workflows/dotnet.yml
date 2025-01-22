@@ -18,34 +18,29 @@ jobs:
           SA_PASSWORD: YourStrong@Passw0rd
         ports:
           - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q 'SELECT 1' -b -1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-          --health-start-period=20s
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: Aguardar SQL Server ficar pronto
+        run: |
+          echo "Esperando SQL Server iniciar..."
+          for i in {1..10}; do
+            STATUS=$(docker exec $(docker ps -q -f ancestor=mcr.microsoft.com/mssql/server:2022-latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" -b -1 2>&1 || echo "erro")
+            if [[ "$STATUS" != "erro" ]]; then
+              echo "SQL Server está pronto!"
+              exit 0
+            fi
+            echo "Tentativa $i - SQL Server ainda não está pronto, aguardando..."
+            sleep 5
+          done
+          echo "SQL Server não ficou pronto a tempo"
+          exit 1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '8.0.x'
-
-      - name: Install SQL Server tools
-        run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
-          sudo apt-get update
-          sudo apt-get install mssql-tools unixodbc-dev
-
-      - name: Wait for SQL Server and create database
-        run: |
-          echo "Waiting for SQL Server..."
-          sleep 15s
-          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "CREATE DATABASE ContactsDB"
-          echo "Database created successfully"
 
       - name: Restore dependencies
         working-directory: ./Fase02

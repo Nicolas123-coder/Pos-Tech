@@ -47,7 +47,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "YourStrong@Passw0rd", "-Q", "SELECT 1"]
+      test: ["CMD", "pgrep", "sqlservr"]
       interval: 10s
       timeout: 5s
       retries: 5

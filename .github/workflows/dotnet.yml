@@ -1,4 +1,11 @@
+name: .NET CI/CD
 version: '3.8'
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 services:
   api:
@@ -48,3 +55,59 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: YourStrong@Passw0rd
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q 'SELECT 1' -b -1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          --health-start-period=20s
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install SQL Server tools
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+          sudo apt-get update
+          sudo apt-get install mssql-tools unixodbc-dev
+
+      - name: Wait for SQL Server and create database
+        run: |
+          echo "Waiting for SQL Server..."
+          sleep 15s
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "CREATE DATABASE ContactsDB"
+          echo "Database created successfully"
+
+      - name: Restore dependencies
+        working-directory: ./Fase02
+        run: dotnet restore
+
+      - name: Build
+        working-directory: ./Fase02
+        run: dotnet build --no-restore
+
+      - name: Run tests
+        working-directory: ./Fase02
+        run: dotnet test --no-build --verbosity normal
+        env:
+          ConnectionStrings__DefaultConnection: "Server=localhost;Database=ContactsDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;MultipleActiveResultSets=true;ConnectRetryCount=5;ConnectRetryInterval=10"

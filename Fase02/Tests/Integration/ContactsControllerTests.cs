@@ -1,83 +1,92 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using API;
 using Application.DTOs;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.VisualStudio.TestPlatform.TestHost;
+using Microsoft.Extensions.Configuration;
 using Xunit;
+using System.Linq;
 
-namespace Tests.Integration;
-
-public class ContactsControllerTests : IClassFixture<WebApplicationFactory<Program>>
+namespace Tests.Integration
 {
-    private readonly WebApplicationFactory<Program> _factory;
-    private readonly HttpClient _client;
-
-    public ContactsControllerTests(WebApplicationFactory<Program> factory)
+    public class ContactsControllerTests : IClassFixture<WebApplicationFactory<Program>>
     {
-        _factory = factory.WithWebHostBuilder(builder =>
+        private readonly WebApplicationFactory<Program> _factory;
+        private readonly HttpClient _client;
+
+        public ContactsControllerTests(WebApplicationFactory<Program> factory)
         {
-            builder.ConfigureServices(services =>
+            _factory = factory.WithWebHostBuilder(builder =>
             {
-                var descriptor = services.SingleOrDefault(
-                    d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
-
-                if (descriptor != null)
+                builder.ConfigureAppConfiguration((context, config) =>
                 {
-                    services.Remove(descriptor);
-                }
+                    var builtConfig = config.Build();
+                    var connectionString = builtConfig.GetConnectionString("DefaultConnection");
 
-                services.AddDbContext<ApplicationDbContext>(options =>
-                {
-                    options.UseInMemoryDatabase("TestDb");
+                    builder.ConfigureServices(services =>
+                    {
+                        var descriptor = services.SingleOrDefault(
+                            d => d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
+
+                        if (descriptor != null)
+                        {
+                            services.Remove(descriptor);
+                        }
+
+                        services.AddDbContext<ApplicationDbContext>(options =>
+                        {
+                            options.UseSqlServer(connectionString);
+                        });
+                    });
                 });
             });
-        });
 
-        _client = _factory.CreateClient();
-    }
+            _client = _factory.CreateClient();
+        }
 
-    [Fact]
-    public async Task CreateContact_ValidData_ReturnsCreatedContact()
-    {
-        var newContact = new ContactDTO
+        [Fact]
+        public async Task CreateContact_ValidData_ReturnsCreatedContact()
         {
-            Name = "Test Contact",
-            Email = "test@test.com",
-            Phone = "1234567890",
-            RegionCode = "ABC"
-        };
+            var newContact = new ContactDTO
+            {
+                Name = "Test Contact",
+                Email = "test@test.com",
+                Phone = "1234567890",
+                RegionCode = "ABC"
+            };
 
-        var response = await _client.PostAsJsonAsync("/contacts", newContact);
+            var response = await _client.PostAsJsonAsync("/contacts", newContact);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var createdContact = await response.Content.ReadFromJsonAsync<ContactDTO>();
-        Assert.NotNull(createdContact);
-        Assert.Equal(newContact.Name, createdContact.Name);
-    }
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var createdContact = await response.Content.ReadFromJsonAsync<ContactDTO>();
+            Assert.NotNull(createdContact);
+            Assert.Equal(newContact.Name, createdContact.Name);
+        }
 
-    [Fact]
-    public async Task GetContacts_ReturnsAllContacts()
-    {
-        var response = await _client.GetAsync("/contacts");
+        [Fact]
+        public async Task GetContacts_ReturnsAllContacts()
+        {
+            var response = await _client.GetAsync("/contacts");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
-        Assert.NotNull(contacts);
-    }
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
+            Assert.NotNull(contacts);
+        }
 
-    [Fact]
-    public async Task GetContactsByRegion_ValidRegion_ReturnsFilteredContacts()
-    {
-        const string regionCode = "ABC";
+        [Fact]
+        public async Task GetContactsByRegion_ValidRegion_ReturnsFilteredContacts()
+        {
+            const string regionCode = "ABC";
 
-        var response = await _client.GetAsync($"/contacts/region/{regionCode}");
+            var response = await _client.GetAsync($"/contacts/region/{regionCode}");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
-        Assert.NotNull(contacts);
-        Assert.All(contacts, c => Assert.Equal(regionCode, c.RegionCode));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
+            Assert.NotNull(contacts);
+            Assert.All(contacts, c => Assert.Equal(regionCode, c.RegionCode));
+        }
     }
 }

@@ -7,7 +7,3 @@ scrape_configs:
     static_configs:
       - targets: ['contacts-api:80']
     metrics_path: '/metrics'
-
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']

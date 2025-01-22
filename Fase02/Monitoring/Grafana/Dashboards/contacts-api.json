@@ -81,7 +81,15 @@
         }
       },
       "title": "Request Duration",
-      "type": "timeseries"
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum{job=\"contacts-api\"}[5m])",
+          "interval": "",
+          "intervalFactor": 2,
+          "refId": "A"
+        }
+      ]
     },
     {
       "datasource": {
@@ -93,7 +101,6 @@
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -131,7 +138,15 @@
       },
       "pluginVersion": "10.0.3",
       "title": "Memory Usage",
-      "type": "gauge"
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"contacts-api\"}",
+          "interval": "",
+          "intervalFactor": 2,
+          "refId": "B"
+        }
+      ]
     }
   ],
   "refresh": "5s",

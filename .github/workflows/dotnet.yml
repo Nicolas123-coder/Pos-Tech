@@ -1,5 +1,4 @@
 name: .NET CI/CD
-version: '3.8'
 
 on:
   push:
@@ -7,66 +6,16 @@ on:
   pull_request:
     branches: [ main ]
 
-services:
-  api:
-    build:
-      context: ..
-      dockerfile: API/Dockerfile
-    ports:
-      - "5160:80"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-    depends_on:
-      - sql-server
-
-  sql-server:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong@Passw0rd
-    ports:
-      - "1433:1433"
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    depends_on:
-      - api
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
-    depends_on:
-      - prometheus
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     services:
-      sql:
-        image: mcr.microsoft.com/mssql/server:2019-latest
+      sql-server:
+        image: mcr.microsoft.com/mssql/server:2022-latest
         env:
           ACCEPT_EULA: Y
           SA_PASSWORD: YourStrong@Passw0rd
-          MSSQL_PID: Developer
         ports:
           - 1433:1433
         options: >-

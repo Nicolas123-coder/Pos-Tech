@@ -22,6 +22,8 @@ namespace API.Controllers
         public async Task<IActionResult> GetAll()
         {
             _logger.LogInformation("Obtendo todos os contatos");
+            _logger.LogInformation("Teste commit");
+
             var contacts = await _contactService.GetContactsByRegionAsync(null);
             return Ok(contacts);
         }

@@ -58,13 +58,9 @@ namespace Consumer
                         return;
                     }
 
-                    _logger.LogInformation("Mensagem envelope: ");
-                    _logger.LogInformation(envelope.Message.ToString());
-
                     var method = envelope.Method?.ToUpperInvariant();
                     var route = envelope.Route ?? string.Empty;
-                    var messageJson = envelope.Message.ToString();
-                    var message = JsonSerializer.Deserialize<ContactDTO>(messageJson);
+                    var message = envelope.Message;
 
                     switch (method)
                     {

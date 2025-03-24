@@ -47,15 +47,33 @@ if (builder.Configuration.GetValue<bool>("APPLY_MIGRATIONS", false))
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var pendingMigrations = dbContext.Database.GetPendingMigrations().Any();
-            if (pendingMigrations)
+            bool tableExists = false;
+            try
+            {
+                var _ = dbContext.Contacts.FirstOrDefault();
+                tableExists = true;
+            }
+            catch {}
+
+            if (!tableExists)
             {
                 Console.WriteLine("Applying pending migrations...");
                 dbContext.Database.Migrate();
             }
             else
             {
-                Console.WriteLine("No pending migrations to apply.");
+                Console.WriteLine("Table 'Contacts' already exists. Skipping migrations.");
+
+                var conn = dbContext.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    conn.Open();
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "IF NOT EXISTS (SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '20250323233129_InitialCreate') " +
+                                      "INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('20250323233129_InitialCreate', '9.0.3')";
+                    cmd.ExecuteNonQuery();
+                }
             }
         }
     }

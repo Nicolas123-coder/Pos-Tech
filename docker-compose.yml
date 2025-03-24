@@ -11,7 +11,7 @@ volumes:
 services:
   contacts-api:
     build:
-      context: ./Fase02
+      context: ./Pos-Tech
       dockerfile: API/Dockerfile
     container_name: contacts-api
     ports:
@@ -23,7 +23,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - APPLY_MIGRATIONS=true
     volumes:
-      - ./Fase02:/src/Fase02
+      - ./Pos-Tech:/src/Pos-Tech
       - contacts_api:/app
     depends_on:
       sql-server:
@@ -72,7 +72,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./Fase02/Monitoring/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./Pos-Tech/Monitoring/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -96,8 +96,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
     volumes:
-      - ./Fase02/Monitoring/Grafana/provisioning:/etc/grafana/provisioning
-      - ./Fase02/Monitoring/Grafana/dashboards:/var/lib/grafana/dashboards
+      - ./Pos-Tech/Monitoring/Grafana/provisioning:/etc/grafana/provisioning
+      - ./Pos-Tech/Monitoring/Grafana/dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
     networks:
       - monitoring
@@ -107,7 +107,7 @@ services:
 
   consumidor:
     build:
-      context: ./Fase02
+      context: ./Pos-Tech
       dockerfile: Consumer/Dockerfile
     container_name: consumidor
     environment:

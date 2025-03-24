@@ -2,6 +2,9 @@
 using Application.Services;
 using Microsoft.AspNetCore.Mvc;
 using FluentValidation;
+using RabbitMQ.Client;
+using System.Text;
+using System.Text.Json;
 
 namespace API.Controllers
 {
@@ -9,53 +12,97 @@ namespace API.Controllers
     [Route("[controller]")]
     public class ContactsController : ControllerBase
     {
-        private readonly ContactService _contactService;
         private readonly ILogger<ContactsController> _logger;
 
-        public ContactsController(ContactService contactService, ILogger<ContactsController> logger)
+        public ContactsController(ILogger<ContactsController> logger)
         {
-            _contactService = contactService;
             _logger = logger;
         }
+
+        private void SendMessageToRabbitMQ(string method, string route, ContactDTO message)
+        {
+            var factory = new ConnectionFactory
+            {
+                HostName = "rabbitmq",
+                Port = 5672,
+                UserName = "guest",
+                Password = "guest"
+            };
+
+            Console.WriteLine("USANDO PORTA 5672 E HOST rabbitmq");
+
+            using (var connection = factory.CreateConnection())
+            using (var channel = connection.CreateModel())
+            {
+                channel.ExchangeDeclare("contacts-exchange", ExchangeType.Direct, durable: true);
+                channel.QueueDeclare("contacts-queue", durable: true, exclusive: false, autoDelete: false);
+                channel.QueueBind("contacts-queue", "contacts-exchange", "create");
+
+                var messageObject = new Envelope
+                {
+                    Method = method,
+                    Route = route,
+                    Message = message
+                };
+
+                var body = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageObject));
+
+                channel.BasicPublish(
+                    exchange: "contacts-exchange",
+                    routingKey: "create",
+                    basicProperties: null,
+                    body: body
+                );
+
+                _logger.LogInformation("Mensagem publicada com sucesso na fila.");
+            }
+        }
+
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            _logger.LogInformation("Obtendo todos os contatos");
-            _logger.LogInformation("Teste commit");
+            _logger.LogInformation("Obtendo todos os contatos (enviando mensagem ao rabbitmq)");
 
-            var contacts = await _contactService.GetContactsByRegionAsync(null);
-            return Ok(contacts);
+            // Enviar para RabbitMQ (Não fazemos mais a lógica de banco de dados aqui)
+            SendMessageToRabbitMQ("GET", "contacts", new ContactDTO { });
+
+            return Ok("Mensagens enviadas para o RabbitMQ.");
         }
 
         [HttpGet("{id}", Name = "GetContactById")]
         public async Task<IActionResult> GetContactById(int id)
         {
             _logger.LogInformation($"Obtendo contato com ID {id}");
-            var contact = await _contactService.GetContactByIdAsync(id);
-            if (contact == null)
-            {
-                return NotFound($"Contato com ID {id} não encontrado.");
-            }
-            return Ok(contact);
+
+            // Enviar para RabbitMQ
+            SendMessageToRabbitMQ("GET", $"contacts/{id}", new ContactDTO { });
+
+            return Ok("Mensagens enviadas para o RabbitMQ.");
         }
 
         [HttpGet("region/{regionCode}", Name = "GetContactsByRegion")]
         public async Task<IActionResult> GetContactsByRegion(string regionCode)
         {
             _logger.LogInformation($"Obtendo contatos da região {regionCode}");
-            var contacts = await _contactService.GetContactsByRegionAsync(regionCode);
-            return Ok(contacts);
+
+            // Enviar para RabbitMQ
+            SendMessageToRabbitMQ("GET", $"contacts/region/{regionCode}", new ContactDTO { });
+
+            return Ok("Mensagens enviadas para o RabbitMQ.");
         }
 
         [HttpPost]
         public async Task<IActionResult> AddContact([FromBody] ContactDTO contactDto)
         {
             _logger.LogInformation("Adicionando um novo contato");
+
             try
             {
-                var contact = await _contactService.AddContactAsync(contactDto);
-                return CreatedAtRoute("GetContactById", new { id = contact.Id }, contact);
+                // Enviar para RabbitMQ
+                SendMessageToRabbitMQ("POST", "contacts", contactDto);
+
+                return Ok("Mensagem enviada para o RabbitMQ.");
             }
             catch (ValidationException ex)
             {
@@ -67,10 +114,13 @@ namespace API.Controllers
         public async Task<IActionResult> UpdateContact(int id, [FromBody] ContactDTO contactDto)
         {
             _logger.LogInformation($"Atualizando contato com ID {id}");
+
             try
             {
-                var updatedContact = await _contactService.UpdateContactAsync(id, contactDto);
-                return Ok(updatedContact);
+                // Enviar para RabbitMQ
+                SendMessageToRabbitMQ("PUT", $"contacts/{id}", contactDto);
+
+                return Ok("Mensagem enviada para o RabbitMQ.");
             }
             catch (KeyNotFoundException)
             {
@@ -86,10 +136,13 @@ namespace API.Controllers
         public async Task<IActionResult> DeleteContact(int id)
         {
             _logger.LogInformation($"Excluindo contato com ID {id}");
+
             try
             {
-                await _contactService.DeleteContactAsync(id);
-                return NoContent();
+                // Enviar para RabbitMQ
+                SendMessageToRabbitMQ("DELETE", $"contacts/{id}", new ContactDTO { });
+
+                return Ok("Mensagem enviada para o RabbitMQ.");
             }
             catch (KeyNotFoundException)
             {
@@ -98,3 +151,148 @@ namespace API.Controllers
         }
     }
 }
+
+
+//using Application.DTOs;
+//using MassTransit;
+//using Microsoft.AspNetCore.Mvc;
+//using Microsoft.Extensions.Logging;
+//using FluentValidation;
+
+//namespace API.Controllers
+//{
+//    [ApiController]
+//    [Route("[controller]")]
+//    public class ContactsController : ControllerBase
+//    {
+//        private readonly ILogger<ContactsController> _logger;
+//        private readonly IPublishEndpoint _publishEndpoint;
+
+//        public ContactsController(IPublishEndpoint publishEndpoint, ILogger<ContactsController> logger)
+//        {
+//            _publishEndpoint = publishEndpoint;
+//            _logger = logger;
+//        }
+
+//        [HttpGet]
+//        public async Task<IActionResult> GetAll()
+//        {
+//            _logger.LogInformation("Obtendo todos os contatos (enviando mensagem via MassTransit)");
+
+//            var envelope = new Envelope
+//            {
+//                Method = "GET",
+//                Route = "contacts",
+//                Message = null
+//            };
+
+//            await _publishEndpoint.Publish(envelope);
+//            return Ok("Mensagem enviada via MassTransit.");
+//        }
+
+//        [HttpGet("{id}", Name = "GetContactById")]
+//        public async Task<IActionResult> GetContactById(int id)
+//        {
+//            _logger.LogInformation($"Obtendo contato com ID {id}");
+
+//            var envelope = new Envelope
+//            {
+//                Method = "GET",
+//                Route = $"contacts/{id}",
+//                Message = null
+//            };
+
+//            await _publishEndpoint.Publish(envelope);
+//            return Ok("Mensagem enviada via MassTransit.");
+//        }
+
+//        [HttpGet("region/{regionCode}", Name = "GetContactsByRegion")]
+//        public async Task<IActionResult> GetContactsByRegion(string regionCode)
+//        {
+//            _logger.LogInformation($"Obtendo contatos da região {regionCode}");
+
+//            var envelope = new Envelope
+//            {
+//                Method = "GET",
+//                Route = $"contacts/region/{regionCode}",
+//                Message = null
+//            };
+
+//            await _publishEndpoint.Publish(envelope);
+//            return Ok("Mensagem enviada via MassTransit.");
+//        }
+
+//        [HttpPost]
+//        public async Task<IActionResult> AddContact([FromBody] ContactDTO contactDto)
+//        {
+//            _logger.LogInformation("Adicionando um novo contato");
+
+//            try
+//            {
+//                var envelope = new Envelope
+//                {
+//                    Method = "POST",
+//                    Route = "contacts",
+//                    Message = contactDto
+//                };
+
+//                await _publishEndpoint.Publish(envelope);
+//                return Ok("Mensagem enviada via MassTransit.");
+//            }
+//            catch (ValidationException ex)
+//            {
+//                return BadRequest(ex.Errors);
+//            }
+//        }
+
+//        [HttpPut("{id}")]
+//        public async Task<IActionResult> UpdateContact(int id, [FromBody] ContactDTO contactDto)
+//        {
+//            _logger.LogInformation($"Atualizando contato com ID {id}");
+
+//            try
+//            {
+//                var envelope = new Envelope
+//                {
+//                    Method = "PUT",
+//                    Route = $"contacts/{id}",
+//                    Message = contactDto
+//                };
+
+//                await _publishEndpoint.Publish(envelope);
+//                return Ok("Mensagem enviada via MassTransit.");
+//            }
+//            catch (KeyNotFoundException)
+//            {
+//                return NotFound($"Contato com ID {id} não encontrado.");
+//            }
+//            catch (ValidationException ex)
+//            {
+//                return BadRequest(ex.Errors);
+//            }
+//        }
+
+//        [HttpDelete("{id}")]
+//        public async Task<IActionResult> DeleteContact(int id)
+//        {
+//            _logger.LogInformation($"Excluindo contato com ID {id}");
+
+//            try
+//            {
+//                var envelope = new Envelope
+//                {
+//                    Method = "DELETE",
+//                    Route = $"contacts/{id}",
+//                    Message = null
+//                };
+
+//                await _publishEndpoint.Publish(envelope);
+//                return Ok("Mensagem enviada via MassTransit.");
+//            }
+//            catch (KeyNotFoundException)
+//            {
+//                return NotFound($"Contato com ID {id} não encontrado.");
+//            }
+//        }
+//    }
+//}

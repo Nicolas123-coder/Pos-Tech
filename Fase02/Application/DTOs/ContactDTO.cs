@@ -7,4 +7,11 @@
         public string Email { get; set; }
         public string RegionCode { get; set; }
     }
+
+    public class Envelope
+    {
+        public string Method { get; set; }
+        public string Route { get; set; }
+        public ContactDTO? Message { get; set; }
+    }
 }

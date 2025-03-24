@@ -53,6 +53,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - app-network
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -91,3 +104,17 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
+
+  consumidor:
+    build:
+      context: ./Fase02
+      dockerfile: Consumer/Dockerfile
+    container_name: consumidor
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+    depends_on:
+      - rabbitmq
+    networks:
+      - app-network
+    restart: unless-stopped

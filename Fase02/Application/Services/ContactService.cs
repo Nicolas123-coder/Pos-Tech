@@ -74,5 +74,17 @@ namespace Application.Services
 
             await _contactRepository.DeleteContactAsync(contactId);
         }
+
+        // Validators
+        public async Task ValidateAsync(ContactDTO contactDto)
+        {
+            var context = new ValidationContext<ContactDTO>(contactDto);
+            var validationResult = await _validator.ValidateAsync(context);
+
+            if (!validationResult.IsValid)
+            {
+                throw new ValidationException(validationResult.Errors);
+            }
+        }
     }
 }

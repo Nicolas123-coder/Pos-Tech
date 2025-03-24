@@ -39,10 +39,30 @@ builder.Services.AddCustomMetrics();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (builder.Configuration.GetValue<bool>("APPLY_MIGRATIONS", false))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    try
+    {
+        using (var scope = app.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var pendingMigrations = dbContext.Database.GetPendingMigrations().Any();
+            if (pendingMigrations)
+            {
+                Console.WriteLine("Applying pending migrations...");
+                dbContext.Database.Migrate();
+            }
+            else
+            {
+                Console.WriteLine("No pending migrations to apply.");
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error during migration: {ex.Message}");
+    }
 }
 
 if (app.Environment.IsDevelopment())

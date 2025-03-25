@@ -18,6 +18,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlSer
 builder.Services.AddScoped<IContactRepository, ContactRepository>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 
 builder.Services.AddFluentValidationAutoValidation()
     .AddFluentValidationClientsideAdapters();

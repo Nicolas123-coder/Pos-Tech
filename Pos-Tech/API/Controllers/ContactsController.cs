@@ -5,6 +5,7 @@ using FluentValidation;
 using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
+using System.Net;
 
 namespace API.Controllers
 {
@@ -13,10 +14,12 @@ namespace API.Controllers
     public class ContactsController : ControllerBase
     {
         private readonly ILogger<ContactsController> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public ContactsController(ILogger<ContactsController> logger)
+        public ContactsController(ILogger<ContactsController> logger, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
+            _httpClientFactory = httpClientFactory;
         }
 
         private void SendMessageToRabbitMQ(string method, string route, ContactDTO message)
@@ -62,34 +65,63 @@ namespace API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            _logger.LogInformation("Obtendo todos os contatos (enviando mensagem ao rabbitmq)");
+            _logger.LogInformation("Obtendo contatos via Azure Function");
 
-            // Enviar para RabbitMQ (Não fazemos mais a lógica de banco de dados aqui)
-            SendMessageToRabbitMQ("GET", "contacts", new ContactDTO { });
+            var client = _httpClientFactory.CreateClient();
 
-            return Ok("Mensagens enviadas para o RabbitMQ.");
+            var response = await client.GetAsync("http://get-contacts-fn/api/contacts");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Azure Function falhou: {Status}", response.StatusCode);
+                return StatusCode((int)response.StatusCode, "Erro ao consultar contatos.");
+            }
+
+            var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
+            return Ok(contacts);
         }
 
         [HttpGet("{id}", Name = "GetContactById")]
         public async Task<IActionResult> GetContactById(int id)
         {
-            _logger.LogInformation($"Obtendo contato com ID {id}");
+            _logger.LogInformation($"Obtendo contato com ID {id} via Azure Function");
 
-            // Enviar para RabbitMQ
-            SendMessageToRabbitMQ("GET", $"contacts/{id}", new ContactDTO { });
+            var client = _httpClientFactory.CreateClient();
+            var response = await client.GetAsync($"http://get-contacts-fn/api/contacts/{id}");
 
-            return Ok("Mensagens enviadas para o RabbitMQ.");
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                _logger.LogWarning($"Contato com ID {id} não encontrado.");
+                return NotFound($"Contato com ID {id} não encontrado.");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Azure Function falhou: {Status}", response.StatusCode);
+                return StatusCode((int)response.StatusCode, "Erro ao consultar contato.");
+            }
+
+            var contact = await response.Content.ReadFromJsonAsync<ContactDTO>();
+            return Ok(contact);
         }
 
         [HttpGet("region/{regionCode}", Name = "GetContactsByRegion")]
         public async Task<IActionResult> GetContactsByRegion(string regionCode)
         {
-            _logger.LogInformation($"Obtendo contatos da região {regionCode}");
+            _logger.LogInformation($"Obtendo contatos da região {regionCode} via Azure Function");
 
-            // Enviar para RabbitMQ
-            SendMessageToRabbitMQ("GET", $"contacts/region/{regionCode}", new ContactDTO { });
+            var client = _httpClientFactory.CreateClient();
 
-            return Ok("Mensagens enviadas para o RabbitMQ.");
+            var response = await client.GetAsync($"http://get-contacts-fn/api/contacts/region/{regionCode}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Azure Function falhou: {Status}", response.StatusCode);
+                return StatusCode((int)response.StatusCode, "Erro ao consultar contatos por região.");
+            }
+
+            var contacts = await response.Content.ReadFromJsonAsync<IEnumerable<ContactDTO>>();
+            return Ok(contacts);
         }
 
         [HttpPost]

@@ -118,3 +118,19 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+
+  get-contacts-fn:
+    build:
+      context: ./Pos-Tech
+      dockerfile: GetContacts/Dockerfile
+    container_name: get-contacts-fn
+    ports:
+      - "7071:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    networks:
+      - app-network

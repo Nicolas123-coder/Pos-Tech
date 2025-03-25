@@ -18,6 +18,7 @@ namespace Tests.Unit.Controllers
         private readonly Mock<IConnection> _connectionMock;
         private readonly Mock<IModel> _channelMock;
         private readonly ContactsController _controller;
+        private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
 
         public ContactsControllerTests()
         {
@@ -29,8 +30,9 @@ namespace Tests.Unit.Controllers
 
             _connectionFactoryMock.Setup(cf => cf.CreateConnection()).Returns(_connectionMock.Object);
             _connectionMock.Setup(c => c.CreateModel()).Returns(_channelMock.Object);
+            _httpClientFactoryMock = new Mock<IHttpClientFactory>();
 
-            _controller = new ContactsController(_loggerMock.Object);
+            _controller = new ContactsController(_loggerMock.Object, _httpClientFactoryMock.Object);
         }
 
         [Fact]

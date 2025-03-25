@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "CreateContactConsumerFunction": {
-      "commandName": "Project",
-      "commandLineArgs": "--port 7044",
-      "launchBrowser": false
-    }
-  }
-}

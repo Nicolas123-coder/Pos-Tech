@@ -40,10 +40,48 @@ builder.Services.AddCustomMetrics();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (builder.Configuration.GetValue<bool>("APPLY_MIGRATIONS", false))
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    try
+    {
+        using (var scope = app.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            bool tableExists = false;
+            try
+            {
+                var _ = dbContext.Contacts.FirstOrDefault();
+                tableExists = true;
+            }
+            catch {}
+
+            if (!tableExists)
+            {
+                Console.WriteLine("Applying pending migrations...");
+                dbContext.Database.Migrate();
+            }
+            else
+            {
+                Console.WriteLine("Table 'Contacts' already exists. Skipping migrations.");
+
+                var conn = dbContext.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open)
+                    conn.Open();
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "IF NOT EXISTS (SELECT * FROM [__EFMigrationsHistory] WHERE [MigrationId] = '20250323233129_InitialCreate') " +
+                                      "INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('20250323233129_InitialCreate', '9.0.3')";
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error during migration: {ex.Message}");
+    }
 }
 
 if (app.Environment.IsDevelopment())

@@ -9,215 +9,6 @@
   "liveNow": false,
   "panels": [
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 1,
-      "panels": [],
-      "title": "Visão Geral do Sistema",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 0,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "10.0.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "contacts_api_in_progress_requests",
-          "interval": "",
-          "legendFormat": "Requests in Progress",
-          "refId": "A"
-        }
-      ],
-      "title": "Requisições em Andamento",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "10.0.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "100 * (1 - avg by (instance)(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
-          "interval": "",
-          "legendFormat": "CPU Usage",
-          "refId": "A"
-        }
-      ],
-      "title": "Uso de CPU",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "id": 4,
-      "options": {
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      },
-      "pluginVersion": "10.0.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "100 * (node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes",
-          "interval": "",
-          "legendFormat": "Memory Usage",
-          "refId": "A"
-        }
-      ],
-      "title": "Uso de Memória",
-      "type": "gauge"
-    },
-    {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -271,121 +62,6 @@
               }
             ]
           },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 1
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [ "mean", "max" ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "process_resident_memory_bytes{job=\"contacts-api\"}",
-          "interval": "",
-          "legendFormat": "API Memory",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "process_resident_memory_bytes{job=\"consumer\"}",
-          "interval": "",
-          "legendFormat": "Consumer Memory",
-          "refId": "B"
-        }
-      ],
-      "title": "Memória dos Serviços",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 9
-      },
-      "id": 6,
-      "panels": [],
-      "title": "API Performance",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
           "unit": "reqps"
         },
         "overrides": []
@@ -394,9 +70,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 0
       },
-      "id": 7,
+      "id": 1,
       "options": {
         "legend": {
           "calcs": [ "mean", "max" ],
@@ -417,7 +93,7 @@
           },
           "expr": "rate(contacts_api_requests_total[1m])",
           "interval": "",
-          "legendFormat": "Requests per Second",
+          "legendFormat": "Requisições por Segundo",
           "refId": "A"
         }
       ],
@@ -486,9 +162,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 0
       },
-      "id": 8,
+      "id": 2,
       "options": {
         "legend": {
           "calcs": [ "mean", "max" ],
@@ -513,7 +189,7 @@
           "refId": "A"
         }
       ],
-      "title": "Tempo de Resposta da API",
+      "title": "Tempo de Resposta API",
       "type": "timeseries"
     },
     {
@@ -577,9 +253,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 8
       },
-      "id": 9,
+      "id": 3,
       "options": {
         "legend": {
           "calcs": [],
@@ -600,7 +276,7 @@
           },
           "expr": "sum(increase(http_requests_total{job=\"contacts-api\",code=~\"2..\"}[1m]))",
           "interval": "",
-          "legendFormat": "Successful (2xx)",
+          "legendFormat": "Sucesso (2xx)",
           "refId": "A"
         },
         {
@@ -610,7 +286,7 @@
           },
           "expr": "sum(increase(http_requests_total{job=\"contacts-api\",code=~\"4..\"}[1m]))",
           "interval": "",
-          "legendFormat": "Client Error (4xx)",
+          "legendFormat": "Erro Cliente (4xx)",
           "refId": "B"
         },
         {
@@ -620,7 +296,7 @@
           },
           "expr": "sum(increase(http_requests_total{job=\"contacts-api\",code=~\"5..\"}[1m]))",
           "interval": "",
-          "legendFormat": "Server Error (5xx)",
+          "legendFormat": "Erro Servidor (5xx)",
           "refId": "C"
         }
       ],
@@ -643,140 +319,6 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 18
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(http_requests_total{job=\"contacts-api\",method=\"GET\"}[1m]))",
-          "interval": "",
-          "legendFormat": "GET",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(http_requests_total{job=\"contacts-api\",method=\"POST\"}[1m]))",
-          "interval": "",
-          "legendFormat": "POST",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(http_requests_total{job=\"contacts-api\",method=\"PUT\"}[1m]))",
-          "interval": "",
-          "legendFormat": "PUT",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(increase(http_requests_total{job=\"contacts-api\",method=\"DELETE\"}[1m]))",
-          "interval": "",
-          "legendFormat": "DELETE",
-          "refId": "D"
-        }
-      ],
-      "title": "Tipos de Requisição HTTP",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
-      "id": 11,
-      "panels": [],
-      "title": "RabbitMQ",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 20,
             "gradientMode": "none",
@@ -821,10 +363,10 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 27
+        "x": 12,
+        "y": 8
       },
-      "id": 12,
+      "id": 4,
       "options": {
         "legend": {
           "calcs": [ "mean", "max" ],
@@ -844,112 +386,11 @@
             "uid": "prometheus"
           },
           "expr": "rabbitmq_queue_messages{queue=\"contacts-queue\"}",
-          "legendFormat": "Queue Depth",
+          "legendFormat": "Profundidade da Fila",
           "refId": "A"
         }
       ],
-      "title": "Profundidade da Fila RabbitMQ",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 27
-      },
-      "id": 13,
-      "options": {
-        "legend": {
-          "calcs": [ "mean", "max" ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(rabbitmq_queue_messages_published_total{queue=\"contacts-queue\"}[1m])",
-          "legendFormat": "Published/s",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(rabbitmq_queue_messages_delivered_total{queue=\"contacts-queue\"}[1m])",
-          "hide": false,
-          "legendFormat": "Delivered/s",
-          "refId": "B"
-        }
-      ],
-      "title": "Taxa de Mensagens RabbitMQ",
+      "title": "Fila RabbitMQ",
       "type": "timeseries"
     },
     {
@@ -972,11 +413,11 @@
               },
               {
                 "color": "yellow",
-                "value": 10
+                "value": 1
               },
               {
                 "color": "red",
-                "value": 30
+                "value": 10
               }
             ]
           }
@@ -985,11 +426,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 8,
         "x": 0,
-        "y": 35
+        "y": 16
       },
-      "id": 14,
+      "id": 5,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -1013,79 +454,11 @@
           },
           "expr": "rabbitmq_queue_messages{queue=\"contacts-queue\",state=\"ready\"}",
           "interval": "",
-          "legendFormat": "Ready Messages",
+          "legendFormat": "Mensagens Prontas",
           "refId": "A"
         }
       ],
-      "title": "Mensagens Prontas",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 6,
-        "y": 35
-      },
-      "id": 15,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "10.0.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rabbitmq_queue_messages{queue=\"contacts-queue\",state=\"unacked\"}",
-          "interval": "",
-          "legendFormat": "Unacked Messages",
-          "refId": "A"
-        }
-      ],
-      "title": "Mensagens Não Confirmadas",
+      "title": "Mensagens na Fila",
       "type": "stat"
     },
     {
@@ -1121,11 +494,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 35
+        "w": 8,
+        "x": 8,
+        "y": 16
       },
-      "id": 16,
+      "id": 6,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -1149,11 +522,11 @@
           },
           "expr": "rabbitmq_queue_messages_dead_lettered_total{queue=\"contacts-queue\"}",
           "interval": "",
-          "legendFormat": "Dead-Lettered Messages",
+          "legendFormat": "Mensagens DLQ",
           "refId": "A"
         }
       ],
-      "title": "Mensagens em DLQ",
+      "title": "Mensagens na DLQ",
       "type": "stat"
     },
     {
@@ -1176,28 +549,26 @@
               },
               {
                 "color": "yellow",
-                "value": 1
+                "value": 70
               },
               {
                 "color": "red",
-                "value": 5
+                "value": 85
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 35
+        "w": 8,
+        "x": 16,
+        "y": 16
       },
-      "id": 17,
+      "id": 7,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -1206,7 +577,8 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
       "pluginVersion": "10.0.3",
       "targets": [
@@ -1215,23 +587,20 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rabbitmq_queue_messages_rejected_total{queue=\"contacts-queue\"}",
+          "expr": "100 * (node_memory_MemTotal_bytes - node_memory_MemFree_bytes - node_memory_Buffers_bytes - node_memory_Cached_bytes) / node_memory_MemTotal_bytes",
           "interval": "",
-          "legendFormat": "Rejected Messages",
+          "legendFormat": "Uso de Memória",
           "refId": "A"
         }
       ],
-      "title": "Mensagens Rejeitadas",
-      "type": "stat"
+      "title": "Uso de Memória",
+      "type": "gauge"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [ "microservices", "rabbitmq", "contacts-api" ],
-  "templating": {
-    "list": []
-  },
   "time": {
     "from": "now-15m",
     "to": "now"

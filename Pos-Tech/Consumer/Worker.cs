@@ -6,6 +6,7 @@ using Application.DTOs;
 using Application.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Infrastructure.Messaging;
+using Prometheus;
 
 namespace Consumer
 {
@@ -14,15 +15,21 @@ namespace Consumer
         private readonly ILogger<Worker> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly IConnection _rabbitConnection;
+        private readonly Counter _messagesProcessedCounter;
+        private readonly Gauge _processingQueueSize;
 
         public Worker(
             ILogger<Worker> logger,
             IServiceProvider serviceProvider,
-            IConnection rabbitConnection)
+            IConnection rabbitConnection,
+            Counter messagesProcessedCounter,
+            Gauge processingQueueSize)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _rabbitConnection = rabbitConnection;
+            _messagesProcessedCounter = messagesProcessedCounter;
+            _processingQueueSize = processingQueueSize;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,6 +44,8 @@ namespace Consumer
 
             consumer.Received += async (model, ea) =>
             {
+                _processingQueueSize.Inc(); // Incrementar o contador de mensagens em processamento
+
                 using var scope = _serviceProvider.CreateScope();
                 var contactService = scope.ServiceProvider.GetRequiredService<ContactService>();
 
@@ -92,10 +101,16 @@ namespace Consumer
                             _logger.LogWarning("Método não reconhecido: {Method}", method);
                             break;
                     }
+
+                    _messagesProcessedCounter.Inc();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erro ao processar a mensagem");
+                }
+                finally
+                {
+                    _processingQueueSize.Dec();
                 }
             };
 

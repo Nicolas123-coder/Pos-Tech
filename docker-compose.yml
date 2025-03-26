@@ -224,18 +224,21 @@ services:
       - prometheus
 
   consumidor:
-    build:
-      context: ./Pos-Tech
-      dockerfile: Consumer/Dockerfile
-    container_name: consumidor
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
-    depends_on:
-      - rabbitmq
-    networks:
-      - app-network
-    restart: unless-stopped
+      build:
+        context: ./Pos-Tech
+        dockerfile: Consumer/Dockerfile
+      container_name: consumidor
+      ports:
+        - "8081:80"
+      environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      depends_on:
+        - rabbitmq
+      networks:
+        - app-network
+        - monitoring
+      restart: unless-stopped
 
   get-contacts-fn:
     build:

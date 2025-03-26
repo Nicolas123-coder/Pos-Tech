@@ -7,6 +7,7 @@ using Infrastructure.Repositories;
 using Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Consumer;
+using Prometheus;
 
 var builder = Host.CreateApplicationBuilder(args);
 var configuration = builder.Configuration;
@@ -17,10 +18,15 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddScoped<IContactRepository, ContactRepository>();
 builder.Services.AddScoped<ContactService>();
-
 builder.Services.AddValidatorsFromAssemblyContaining<ContactValidator>();
-
 builder.Services.AddRabbitMQServices();
+
+builder.Services.AddSingleton<Counter>(
+    Metrics.CreateCounter("consumer_messages_processed_total", "Total number of messages processed"));
+builder.Services.AddSingleton<Gauge>(
+    Metrics.CreateGauge("consumer_processing_queue_size", "Current size of processing queue"));
+
+builder.Services.AddHostedService<WebMetricsServer>();
 
 builder.Services.AddHostedService<Worker>();
 

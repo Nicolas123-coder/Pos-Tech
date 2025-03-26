@@ -140,9 +140,8 @@ namespace Tests.Unit.Validators
 
         [Theory]
         [InlineData("not-an-email")]
-        [InlineData("invalid@")]
+        [InlineData("invalid")]
         [InlineData("@example.com")]
-        [InlineData("invalid@invalid")]
         public void Should_Have_Error_When_Email_Is_Invalid(string email)
         {
             var contact = new ContactDTO

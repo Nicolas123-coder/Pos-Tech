@@ -10,6 +10,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Unit\Consumer\**" />
+    <Compile Remove="Unit\Services\**" />
+    <EmbeddedResource Remove="Unit\Consumer\**" />
+    <EmbeddedResource Remove="Unit\Services\**" />
+    <None Remove="Unit\Consumer\**" />
+    <None Remove="Unit\Services\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.14" />
@@ -29,11 +38,6 @@
     <ProjectReference Include="..\Application\Application.csproj" />
     <ProjectReference Include="..\Domain\Domain.csproj" />
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Unit\Consumer\" />
-    <Folder Include="Unit\Services\" />
   </ItemGroup>
 
 </Project>

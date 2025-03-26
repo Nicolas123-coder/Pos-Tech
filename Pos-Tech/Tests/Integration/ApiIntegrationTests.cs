@@ -34,19 +34,18 @@ namespace Tests.Integration
 
                     services.AddDbContext<ApplicationDbContext>(options =>
                     {
-                        options.UseInMemoryDatabase("InMemoryDbForTesting");
+                        options.UseInMemoryDatabase("InMemoryDbForTesting")
+                               .UseInternalServiceProvider(new ServiceCollection().AddEntityFrameworkInMemoryDatabase().BuildServiceProvider());
                     });
 
                     var sp = services.BuildServiceProvider();
-                    using (var scope = sp.CreateScope())
-                    {
-                        var scopedServices = scope.ServiceProvider;
-                        var db = scopedServices.GetRequiredService<ApplicationDbContext>();
-                        db.Database.EnsureCreated();
+                    using var scope = sp.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    db.Database.EnsureCreated();
 
-                        InitializeTestData(db);
-                    }
+                    InitializeTestData(db);
                 });
+
             });
 
             _client = _factory.CreateClient();

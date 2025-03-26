@@ -5,12 +5,35 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Framing.Impl;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Xunit;
 
 namespace Tests.Unit.Controllers
 {
+    public class FakeHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly string _responseContent;
+        private readonly HttpStatusCode _statusCode;
+
+        public FakeHttpMessageHandler(string responseContent = "[]", HttpStatusCode statusCode = HttpStatusCode.OK)
+        {
+            _responseContent = responseContent;
+            _statusCode = statusCode;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(_statusCode)
+            {
+                Content = new StringContent(_responseContent, Encoding.UTF8, "application/json")
+            };
+
+            return Task.FromResult(response);
+        }
+    }
+
     public class ContactsControllerTests
     {
         private readonly Mock<ILogger<ContactsController>> _loggerMock;
@@ -31,23 +54,33 @@ namespace Tests.Unit.Controllers
             _connectionFactoryMock.Setup(cf => cf.CreateConnection()).Returns(_connectionMock.Object);
             _connectionMock.Setup(c => c.CreateModel()).Returns(_channelMock.Object);
             _httpClientFactoryMock = new Mock<IHttpClientFactory>();
+            _channelMock = new Mock<IModel>();
 
-            _controller = new ContactsController(_loggerMock.Object, _httpClientFactoryMock.Object);
+            _controller = new ContactsController(
+                _loggerMock.Object,
+                _httpClientFactoryMock.Object,
+                _channelMock.Object
+            );
         }
 
         [Fact]
         public async Task GetAll_ShouldReturnOk_AndLogMessage()
         {
+            var httpClient = new HttpClient(new FakeHttpMessageHandler());
+
+            _httpClientFactoryMock.Setup(f => f.CreateClient(It.IsAny<string>()))
+                                  .Returns(httpClient);
+
             var result = await _controller.GetAll();
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal("Mensagens enviadas para o RabbitMQ.", okResult.Value);
+            var contacts = Assert.IsAssignableFrom<IEnumerable<ContactDTO>>(okResult.Value);
 
             _loggerMock.Verify(
                 x => x.Log(
                     LogLevel.Information,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Obtendo todos os contatos")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Obtendo contatos via Azure Function")),
                     It.IsAny<Exception>(),
                     It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)),
                 Times.Once);
@@ -58,10 +91,15 @@ namespace Tests.Unit.Controllers
         {
             int testId = 123;
 
+            var httpClient = new HttpClient(new FakeHttpMessageHandler("{\"id\":123,\"name\":\"Teste\"}")); // opcional: simula retorno com dados
+            _httpClientFactoryMock.Setup(f => f.CreateClient(It.IsAny<string>()))
+                                  .Returns(httpClient);
+
             var result = await _controller.GetContactById(testId);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal("Mensagens enviadas para o RabbitMQ.", okResult.Value);
+            var contact = Assert.IsType<ContactDTO>(okResult.Value);
+            Assert.Equal("Teste", contact.Name);
 
             _loggerMock.Verify(
                 x => x.Log(
@@ -78,10 +116,15 @@ namespace Tests.Unit.Controllers
         {
             string regionCode = "123";
 
+            var httpClient = new HttpClient(new FakeHttpMessageHandler("[{\"id\":1,\"name\":\"Regional\"}]"));
+            _httpClientFactoryMock.Setup(f => f.CreateClient(It.IsAny<string>()))
+                                  .Returns(httpClient);
+
             var result = await _controller.GetContactsByRegion(regionCode);
 
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal("Mensagens enviadas para o RabbitMQ.", okResult.Value);
+            var contacts = Assert.IsAssignableFrom<IEnumerable<ContactDTO>>(okResult.Value);
+            Assert.Single(contacts);
 
             _loggerMock.Verify(
                 x => x.Log(

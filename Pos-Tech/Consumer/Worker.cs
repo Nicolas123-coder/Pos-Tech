@@ -5,6 +5,7 @@ using System.Text.Json;
 using Application.DTOs;
 using Application.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Infrastructure.Messaging;
 
 namespace Consumer
 {
@@ -12,32 +13,25 @@ namespace Consumer
     {
         private readonly ILogger<Worker> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IConnection _rabbitConnection;
 
-        public Worker(ILogger<Worker> logger, IServiceProvider serviceProvider)
+        public Worker(
+            ILogger<Worker> logger,
+            IServiceProvider serviceProvider,
+            IConnection rabbitConnection)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _rabbitConnection = rabbitConnection;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var factory = new ConnectionFactory
-            {
-                HostName = "rabbitmq",
-                Port = 5672,
-                UserName = "guest",
-                Password = "guest"
-            };
+            using var channel = _rabbitConnection.CreateModel();
 
-            using var connection = factory.CreateConnection();
-            using var channel = connection.CreateModel();
+            RabbitMQConfiguration.DeclareQueuesAndExchanges(channel);
 
-            channel.QueueDeclare(
-                "contacts-queue",
-                durable: true,
-                exclusive: false,
-                autoDelete: false
-            );
+            _logger.LogInformation("Consumidor configurado. Filas declaradas.");
 
             var consumer = new EventingBasicConsumer(channel);
 
@@ -106,12 +100,12 @@ namespace Consumer
             };
 
             channel.BasicConsume(
-                queue: "contacts-queue",
+                queue: RabbitMQConfiguration.QueueName,
                 autoAck: true,
                 consumer: consumer
             );
 
-            _logger.LogInformation("👂 Worker aguardando mensagens...");
+            _logger.LogInformation("Worker aguardando mensagens...");
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -126,6 +120,5 @@ namespace Consumer
             var parts = route.Split('/');
             return parts.Length >= 2 && int.TryParse(parts[1], out id);
         }
-
     }
 }

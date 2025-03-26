@@ -9,6 +9,7 @@ using Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Prometheus;
+using Infrastructure.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -19,6 +20,8 @@ builder.Services.AddScoped<IContactRepository, ContactRepository>();
 builder.Services.AddScoped<ContactService>();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
+
+builder.Services.AddRabbitMQServices();
 
 builder.Services.AddFluentValidationAutoValidation()
     .AddFluentValidationClientsideAdapters();
@@ -54,7 +57,7 @@ if (builder.Configuration.GetValue<bool>("APPLY_MIGRATIONS", false))
                 var _ = dbContext.Contacts.FirstOrDefault();
                 tableExists = true;
             }
-            catch {}
+            catch { }
 
             if (!tableExists)
             {

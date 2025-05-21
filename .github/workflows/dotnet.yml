@@ -160,40 +160,40 @@ jobs:
       - name: Create namespaces
         run: |
           echo "📦 Criando namespaces..."
-          kubectl apply -f kubernetes/namespaces/namespace.yaml
+          kubectl apply -f kubernetes/namespaces/namespace.yml
           kubectl get namespaces
       
       - name: Deploy ConfigMaps and Secrets
         run: |
           echo "📦 Criando ConfigMaps e Secrets..."
-          kubectl apply -f kubernetes/configs/configmaps.yaml || echo "Ignorando erro em configmaps"
-          kubectl apply -f kubernetes/configs/secrets.yaml || echo "Ignorando erro em secrets"
+          kubectl apply -f kubernetes/configs/configmaps.yml || echo "Ignorando erro em configmaps"
+          kubectl apply -f kubernetes/configs/secrets.yml || echo "Ignorando erro em secrets"
       
       - name: Deploy Persistent Volumes (local)
         run: |
           echo "📦 Criando volumes persistentes..."
-          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yaml || true
-          kubectl apply -f kubernetes/storage/persistent-volumes.yaml || echo "Ignorando erro em volumes"
+          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yml || true
+          kubectl apply -f kubernetes/storage/persistent-volumes.yml || echo "Ignorando erro em volumes"
       
       - name: Deploy Database and Messaging
         run: |
           echo "📦 Implantando SQL Server..."
-          kubectl apply -f kubernetes/database/sqlserver.yaml || echo "Ignorando erro no SQL Server"
+          kubectl apply -f kubernetes/database/sqlserver.yml || echo "Ignorando erro no SQL Server"
           
           echo "📦 Implantando RabbitMQ..."
-          kubectl apply -f kubernetes/messaging/rabbitmq.yaml || echo "Ignorando erro no RabbitMQ"
+          kubectl apply -f kubernetes/messaging/rabbitmq.yml || echo "Ignorando erro no RabbitMQ"
           
           kubectl get pods --all-namespaces
       
       - name: Deploy Monitoring
         run: |
           echo "📦 Implantando Prometheus e Grafana..."
-          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yaml || echo "Ignorando erro no monitoramento"
+          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yml || echo "Ignorando erro no monitoramento"
       
       - name: Deploy Kong Gateway
         run: |
           echo "📦 Implantando Kong Gateway..."
-          kubectl apply -f kubernetes/gateway/kong.yaml || echo "Ignorando erro no Kong"
+          kubectl apply -f kubernetes/gateway/kong.yml || echo "Ignorando erro no Kong"
       
       - name: Update Kubernetes manifests with image tags
         run: |
@@ -201,21 +201,21 @@ jobs:
           IMAGE_TAG="sha-$(git rev-parse --short HEAD)"
           
           echo "🔄 Atualizando manifestos com tags das imagens..."
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yaml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yaml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado ou erro ao substituir"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yaml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yaml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado ou erro ao substituir"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yaml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yaml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado ou erro ao substituir"
       
       - name: Deploy Application Services
         run: |
           echo "📦 Implantando aplicações..."
-          kubectl apply -f kubernetes/apps/contacts-api.yaml || echo "Ignorando erro na API"
-          kubectl apply -f kubernetes/apps/consumer.yaml || echo "Ignorando erro no Consumer"
-          kubectl apply -f kubernetes/apps/get-contacts.yaml || echo "Ignorando erro no GetContacts"
+          kubectl apply -f kubernetes/apps/contacts-api.yml || echo "Ignorando erro na API"
+          kubectl apply -f kubernetes/apps/consumer.yml || echo "Ignorando erro no Consumer"
+          kubectl apply -f kubernetes/apps/get-contacts.yml || echo "Ignorando erro no GetContacts"
       
       - name: Install Ingress NGINX (skipping validation)
         run: |
@@ -234,7 +234,7 @@ jobs:
       - name: Apply network policies (skipping ingress)
         run: |
           echo "📦 Aplicando políticas de rede..."
-          kubectl apply -f kubernetes/networking/network-policies.yaml || echo "Ignorando erro em network policies"
+          kubectl apply -f kubernetes/networking/network-policies.yml || echo "Ignorando erro em network policies"
       
       - name: Install metrics server for HPA
         run: |
@@ -252,8 +252,8 @@ jobs:
       - name: Apply scaling configuration
         run: |
           echo "📦 Aplicando configurações de autoscaling..."
-          kubectl apply -f kubernetes/scaling/hpa.yaml || echo "Ignorando erro em HPA"
-          kubectl apply -f kubernetes/scaling/resource-quotas.yaml || echo "Ignorando erro em resource quotas"
+          kubectl apply -f kubernetes/scaling/hpa.yml || echo "Ignorando erro em HPA"
+          kubectl apply -f kubernetes/scaling/resource-quotas.yml || echo "Ignorando erro em resource quotas"
       
       - name: Demonstrate scaling (if services are available)
         run: |

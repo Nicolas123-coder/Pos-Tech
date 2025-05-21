@@ -162,7 +162,7 @@ jobs:
       
       - name: Deploy Persistent Volumes (local)
         run: |
-          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yaml
+          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yml
           kubectl apply -f kubernetes/storage/persistent-volumes.yml
       
       - name: Deploy Database and Messaging

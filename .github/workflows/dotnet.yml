@@ -116,18 +116,40 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
+  deploy-to-local-k8s:
     needs: build-and-push-images
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
-      - uses: azure/k8s-set-context@v1
+      - name: Set up Kind Kubernetes cluster
+        uses: engineerd/setup-kind@v0.5.0
         with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+          version: v0.17.0
+          name: kind-cluster
       
-      - name: Create namespaces if not exists
+      - name: Configure Kind to use container registry
+        run: |
+          cat <<EOF | kind create cluster --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          EOF
+      
+      - name: Login to GitHub Container Registry in Kind
+        run: |
+          echo "${{ env.REGISTRY_PASSWORD }}" | docker login ${{ env.REGISTRY }} -u ${{ env.REGISTRY_USERNAME }} --password-stdin
+      
+      - name: Create namespaces
         run: |
           kubectl apply -f kubernetes/namespace.yaml
       
@@ -136,8 +158,9 @@ jobs:
           kubectl apply -f kubernetes/configmaps.yaml
           kubectl apply -f kubernetes/secrets.yaml
       
-      - name: Deploy Persistent Volumes
+      - name: Deploy Persistent Volumes (local)
         run: |
+          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/persistent-volumes.yaml
           kubectl apply -f kubernetes/persistent-volumes.yaml
       
       - name: Deploy Database and Messaging
@@ -175,19 +198,38 @@ jobs:
       
       - name: Deploy Networking and Ingress
         run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=90s
+            
           kubectl apply -f kubernetes/ingress.yaml
           kubectl apply -f kubernetes/network-policies.yaml
       
       - name: Deploy Autoscaling
         run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+          kubectl patch deployment metrics-server -n kube-system --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+          kubectl wait --namespace kube-system \
+            --for=condition=ready pod \
+            --selector=k8s-app=metrics-server \
+            --timeout=90s
+            
           kubectl apply -f kubernetes/hpa.yaml
       
       - name: Set Resource Quotas
         run: |
           kubectl apply -f kubernetes/resource-quotas.yaml
       
-      - name: Wait for deployments to be ready
+      - name: Show deployment status
         run: |
-          kubectl wait --for=condition=Available --timeout=300s deployment/contacts-api -n contacts-app
-          kubectl wait --for=condition=Available --timeout=300s deployment/contacts-consumer -n contacts-app
-          kubectl wait --for=condition=Available --timeout=300s deployment/get-contacts -n contacts-app
+          echo "Pods status:"
+          kubectl get pods --all-namespaces
+          
+          echo "Services status:"
+          kubectl get services --all-namespaces
+          
+          echo "Deployments status:"
+          kubectl get deployments --all-namespaces

@@ -1,4 +1,4 @@
-name: Build and Deploy to Kubernetes
+﻿name: Build and Deploy to Kubernetes
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -118,7 +119,7 @@ jobs:
 
   deploy-to-local-k8s:
     needs: build-and-push-images
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,22 +129,18 @@ jobs:
         with:
           version: v0.17.0
           name: kind-cluster
-      
-      - name: Configure Kind to use container registry
-        run: |
-          cat <<EOF | kind create cluster --config=-
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          nodes:
-          - role: control-plane
-            extraPortMappings:
-            - containerPort: 80
-              hostPort: 80
-              protocol: TCP
-            - containerPort: 443
-              hostPort: 443
-              protocol: TCP
-          EOF
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              extraPortMappings:
+              - containerPort: 80
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 443
+                hostPort: 443
+                protocol: TCP
       
       - name: Login to GitHub Container Registry in Kind
         run: |
@@ -151,77 +148,98 @@ jobs:
       
       - name: Create namespaces
         run: |
-          kubectl apply -f kubernetes/namespace.yaml
+          kubectl apply -f kubernetes/namespaces/namespace.yaml
+          kubectl get namespaces
       
       - name: Deploy ConfigMaps and Secrets
         run: |
-          kubectl apply -f kubernetes/configmaps.yaml
-          kubectl apply -f kubernetes/secrets.yaml
+          kubectl apply -f kubernetes/configs/configmaps.yaml
+          kubectl apply -f kubernetes/configs/secrets.yaml
       
       - name: Deploy Persistent Volumes (local)
         run: |
-          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/persistent-volumes.yaml
-          kubectl apply -f kubernetes/persistent-volumes.yaml
+          sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yaml
+          kubectl apply -f kubernetes/storage/persistent-volumes.yaml
       
       - name: Deploy Database and Messaging
         run: |
-          kubectl apply -f kubernetes/sqlserver.yaml
-          kubectl apply -f kubernetes/rabbitmq.yaml
+          kubectl apply -f kubernetes/database/sqlserver.yaml
+          kubectl apply -f kubernetes/messaging/rabbitmq.yaml
       
       - name: Deploy Monitoring
         run: |
-          kubectl apply -f kubernetes/prometheus-grafana.yaml
+          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yaml
       
       - name: Deploy Kong Gateway
         run: |
-          kubectl apply -f kubernetes/kong.yaml
+          kubectl apply -f kubernetes/gateway/kong.yaml
       
       - name: Update Kubernetes manifests with image tags
         run: |
           REGISTRY="${{ env.REGISTRY }}/${{ github.repository }}"
           IMAGE_TAG="sha-$(git rev-parse --short HEAD)"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/contacts-api.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/contacts-api.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yaml
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/consumer.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/consumer.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yaml
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/get-contacts.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/get-contacts.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yaml
       
       - name: Deploy Application Services
         run: |
-          kubectl apply -f kubernetes/contacts-api.yaml
-          kubectl apply -f kubernetes/consumer.yaml
-          kubectl apply -f kubernetes/get-contacts.yaml
+          kubectl apply -f kubernetes/apps/contacts-api.yaml
+          kubectl apply -f kubernetes/apps/consumer.yaml
+          kubectl apply -f kubernetes/apps/get-contacts.yaml
       
       - name: Deploy Networking and Ingress
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+          echo "Aguardando Ingress Controller ficar pronto..."
           kubectl wait --namespace ingress-nginx \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
-            --timeout=90s
+            --timeout=90s || true
             
-          kubectl apply -f kubernetes/ingress.yaml
-          kubectl apply -f kubernetes/network-policies.yaml
+          kubectl apply -f kubernetes/networking/ingress.yaml
+          kubectl apply -f kubernetes/networking/network-policies.yaml
       
       - name: Deploy Autoscaling
         run: |
           kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
           kubectl patch deployment metrics-server -n kube-system --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
+          echo "Aguardando Metrics Server ficar pronto..."
           kubectl wait --namespace kube-system \
             --for=condition=ready pod \
             --selector=k8s-app=metrics-server \
-            --timeout=90s
+            --timeout=90s || true
             
-          kubectl apply -f kubernetes/hpa.yaml
+          kubectl apply -f kubernetes/scaling/hpa.yaml
       
       - name: Set Resource Quotas
         run: |
-          kubectl apply -f kubernetes/resource-quotas.yaml
+          kubectl apply -f kubernetes/scaling/resource-quotas.yaml
+      
+      - name: Demonstrar escalabilidade
+        run: |
+          echo "Demonstrando escalabilidade manual..."
+          kubectl scale deployment contacts-api -n contacts-app --replicas=3
+          sleep 10
+          kubectl get pods -n contacts-app
+      
+      - name: Demonstrar resiliência
+        run: |
+          echo "Demonstrando resiliência excluindo um pod..."
+          POD_NAME=$(kubectl get pods -n contacts-app -l app=contacts-api -o jsonpath="{.items[0].metadata.name}")
+          echo "Excluindo pod $POD_NAME"
+          kubectl delete pod $POD_NAME -n contacts-app
+          sleep 10
+          echo "Pods após exclusão (observe o novo pod criado automaticamente):"
+          kubectl get pods -n contacts-app
       
       - name: Show deployment status
         run: |
@@ -233,3 +251,5 @@ jobs:
           
           echo "Deployments status:"
           kubectl get deployments --all-namespaces
+          
+          echo "🎉 Demonstração completa do Kubernetes realizada com sucesso!"

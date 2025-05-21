@@ -41,7 +41,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddMetrics();
 builder.Services.AddCustomMetrics();
-builder.Services.AddCustomHealthChecks(connectionString);
+builder.Services.AddCustomHealthChecks(connectionString ?? "");
 
 var app = builder.Build();
 

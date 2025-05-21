@@ -152,51 +152,51 @@ jobs:
       
       - name: Create namespaces
         run: |
-          kubectl apply -f kubernetes/namespaces/namespace.yaml
+          kubectl apply -f kubernetes/namespaces/namespace.yml
           kubectl get namespaces
       
       - name: Deploy ConfigMaps and Secrets
         run: |
-          kubectl apply -f kubernetes/configs/configmaps.yaml
-          kubectl apply -f kubernetes/configs/secrets.yaml
+          kubectl apply -f kubernetes/configs/configmaps.yml
+          kubectl apply -f kubernetes/configs/secrets.yml
       
       - name: Deploy Persistent Volumes (local)
         run: |
           sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yaml
-          kubectl apply -f kubernetes/storage/persistent-volumes.yaml
+          kubectl apply -f kubernetes/storage/persistent-volumes.yml
       
       - name: Deploy Database and Messaging
         run: |
-          kubectl apply -f kubernetes/database/sqlserver.yaml
-          kubectl apply -f kubernetes/messaging/rabbitmq.yaml
+          kubectl apply -f kubernetes/database/sqlserver.yml
+          kubectl apply -f kubernetes/messaging/rabbitmq.yml
       
       - name: Deploy Monitoring
         run: |
-          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yaml
+          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yml
       
       - name: Deploy Kong Gateway
         run: |
-          kubectl apply -f kubernetes/gateway/kong.yaml
+          kubectl apply -f kubernetes/gateway/kong.yml
       
       - name: Update Kubernetes manifests with image tags
         run: |
           REGISTRY="${{ env.REGISTRY }}/${{ github.repository }}"
           IMAGE_TAG="sha-$(git rev-parse --short HEAD)"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yml
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yml
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yaml
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yaml
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yml
       
       - name: Deploy Application Services
         run: |
-          kubectl apply -f kubernetes/apps/contacts-api.yaml
-          kubectl apply -f kubernetes/apps/consumer.yaml
-          kubectl apply -f kubernetes/apps/get-contacts.yaml
+          kubectl apply -f kubernetes/apps/contacts-api.yml
+          kubectl apply -f kubernetes/apps/consumer.yml
+          kubectl apply -f kubernetes/apps/get-contacts.yml
       
       - name: Deploy Networking and Ingress
         run: |
@@ -208,8 +208,8 @@ jobs:
             --selector=app.kubernetes.io/component=controller \
             --timeout=90s || true
             
-          kubectl apply -f kubernetes/networking/ingress.yaml
-          kubectl apply -f kubernetes/networking/network-policies.yaml
+          kubectl apply -f kubernetes/networking/ingress.yml
+          kubectl apply -f kubernetes/networking/network-policies.yml
       
       - name: Deploy Autoscaling
         run: |
@@ -222,11 +222,11 @@ jobs:
             --selector=k8s-app=metrics-server \
             --timeout=90s || true
             
-          kubectl apply -f kubernetes/scaling/hpa.yaml
+          kubectl apply -f kubernetes/scaling/hpa.yml
       
       - name: Set Resource Quotas
         run: |
-          kubectl apply -f kubernetes/scaling/resource-quotas.yaml
+          kubectl apply -f kubernetes/scaling/resource-quotas.yml
       
       - name: Demonstrar escalabilidade
         run: |

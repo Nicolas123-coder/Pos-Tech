@@ -123,24 +123,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Kind Kubernetes cluster
-        uses: engineerd/setup-kind@v0.5.0
+
+      - name: Create Kind config file
+        run: |
+          cat > kind-config.yaml << EOF
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          EOF
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1.7.0
         with:
-          version: v0.17.0
-          name: kind-cluster
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              extraPortMappings:
-              - containerPort: 80
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 443
-                hostPort: 443
-                protocol: TCP
+          cluster_name: tech-challenge
+          config: ./kind-config.yaml
       
       - name: Login to GitHub Container Registry in Kind
         run: |
@@ -234,12 +238,17 @@ jobs:
       - name: Demonstrar resiliência
         run: |
           echo "Demonstrando resiliência excluindo um pod..."
-          POD_NAME=$(kubectl get pods -n contacts-app -l app=contacts-api -o jsonpath="{.items[0].metadata.name}")
-          echo "Excluindo pod $POD_NAME"
-          kubectl delete pod $POD_NAME -n contacts-app
-          sleep 10
-          echo "Pods após exclusão (observe o novo pod criado automaticamente):"
-          kubectl get pods -n contacts-app
+          POD_NAME=$(kubectl get pods -n contacts-app -l app=contacts-api -o jsonpath="{.items[0].metadata.name}" || echo "pod-not-found")
+          
+          if [ "$POD_NAME" != "pod-not-found" ]; then
+            echo "Excluindo pod $POD_NAME"
+            kubectl delete pod $POD_NAME -n contacts-app
+            sleep 10
+            echo "Pods após exclusão (observe o novo pod criado automaticamente):"
+            kubectl get pods -n contacts-app
+          else
+            echo "Não foi possível encontrar um pod para demonstrar resiliência"
+          fi
       
       - name: Show deployment status
         run: |

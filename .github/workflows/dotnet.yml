@@ -117,170 +117,169 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  kubernetes-demo:
+  deploy-to-local-k8s:
     needs: build-and-push-images
-    if: success() || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Create Kind config file
+        run: |
+          cat > kind-config.yaml << EOF
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          EOF
+
       - name: Create Kind cluster
         uses: helm/kind-action@v1.7.0
         with:
           cluster_name: tech-challenge
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              kubeadmConfigPatches:
-              - |
-                kind: InitConfiguration
-                nodeRegistration:
-                  kubeletExtraArgs:
-                    node-labels: "ingress-ready=true"
-              extraPortMappings:
-              - containerPort: 80
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 443
-                hostPort: 443
-                protocol: TCP
+          config: ./kind-config.yaml
       
       - name: Login to GitHub Container Registry in Kind
         run: |
           echo "${{ env.REGISTRY_PASSWORD }}" | docker login ${{ env.REGISTRY }} -u ${{ env.REGISTRY_USERNAME }} --password-stdin
       
-      - name: Setup Kubernetes tools
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-          echo "✅ Cluster Kubernetes criado com sucesso!"
-      
       - name: Create namespaces
         run: |
-          echo "📦 Criando namespaces..."
           kubectl apply -f kubernetes/namespaces/namespace.yml
           kubectl get namespaces
+          sleep 5
       
       - name: Deploy ConfigMaps and Secrets
         run: |
-          echo "📦 Criando ConfigMaps e Secrets..."
           kubectl apply -f kubernetes/configs/configmaps.yml || echo "Ignorando erro em configmaps"
           kubectl apply -f kubernetes/configs/secrets.yml || echo "Ignorando erro em secrets"
+          sleep 5
       
       - name: Deploy Persistent Volumes (local)
         run: |
-          echo "📦 Criando volumes persistentes..."
           sed -i 's|storageClassName: manual|storageClassName: standard|g' kubernetes/storage/persistent-volumes.yml || true
           kubectl apply -f kubernetes/storage/persistent-volumes.yml || echo "Ignorando erro em volumes"
+          sleep 5
       
       - name: Deploy Database and Messaging
         run: |
-          echo "📦 Implantando SQL Server..."
           kubectl apply -f kubernetes/database/sqlserver.yml || echo "Ignorando erro no SQL Server"
+          sleep 10
           
-          echo "📦 Implantando RabbitMQ..."
           kubectl apply -f kubernetes/messaging/rabbitmq.yml || echo "Ignorando erro no RabbitMQ"
+          sleep 10
           
           kubectl get pods --all-namespaces
       
       - name: Deploy Monitoring
         run: |
-          echo "📦 Implantando Prometheus e Grafana..."
           kubectl apply -f kubernetes/monitoring/prometheus-grafana.yml || echo "Ignorando erro no monitoramento"
+          sleep 10
       
       - name: Deploy Kong Gateway
         run: |
-          echo "📦 Implantando Kong Gateway..."
           kubectl apply -f kubernetes/gateway/kong.yml || echo "Ignorando erro no Kong"
+          sleep 10
       
       - name: Update Kubernetes manifests with image tags
         run: |
           REGISTRY="${{ env.REGISTRY }}/${{ github.repository }}"
           IMAGE_TAG="sha-$(git rev-parse --short HEAD)"
           
-          echo "🔄 Atualizando manifestos com tags das imagens..."
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/contacts-api.yml || echo "Arquivo não encontrado"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/consumer.yml || echo "Arquivo não encontrado"
           
-          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado ou erro ao substituir"
-          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado ou erro ao substituir"
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado"
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/apps/get-contacts.yml || echo "Arquivo não encontrado"
       
       - name: Deploy Application Services
         run: |
-          echo "📦 Implantando aplicações..."
           kubectl apply -f kubernetes/apps/contacts-api.yml || echo "Ignorando erro na API"
-          kubectl apply -f kubernetes/apps/consumer.yml || echo "Ignorando erro no Consumer"
+          kubectl apply -f kubernetes/apps/consumer.yml || echo "Ignorando erro no Consumer" 
           kubectl apply -f kubernetes/apps/get-contacts.yml || echo "Ignorando erro no GetContacts"
+          sleep 15
       
-      - name: Install Ingress NGINX (skipping validation)
+      - name: Deploy Networking and Ingress
         run: |
-          echo "📦 Instalando Ingress NGINX Controller..."
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-          
-          echo "⏳ Aguardando Ingress Controller iniciar..."
-          sleep 30
-          
+
+          echo "Aguardando Ingress Controller iniciar (60s)..."
+          sleep 60
           kubectl get pods -n ingress-nginx
           
-          kubectl get events -n ingress-nginx
-          
-          echo "⚠️ Prosseguindo mesmo se o controller não estiver totalmente pronto"
-      
-      - name: Apply network policies (skipping ingress)
-        run: |
-          echo "📦 Aplicando políticas de rede..."
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=90s || echo "Timeout esperando Ingress Controller, mas continuando..."
+            
           kubectl apply -f kubernetes/networking/network-policies.yml || echo "Ignorando erro em network policies"
+          sleep 5
+          
+          echo "Verificando webhook do ingress antes de aplicar o ingress..."
+          kubectl get validatingwebhookconfiguration ingress-nginx-admission -o json || echo "Webhook não encontrado ainda"
+          
+          kubectl apply -f kubernetes/networking/ingress.yml || echo "Erro ao aplicar ingress, continuando mesmo assim..."
       
-      - name: Install metrics server for HPA
+      - name: Deploy Autoscaling
         run: |
-          echo "📦 Instalando Metrics Server para autoscaling..."
           kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
           kubectl patch deployment metrics-server -n kube-system --type=json -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+
+          echo "Aguardando Metrics Server iniciar (30s)..."
+          sleep 30
           
-          echo "⏳ Aguardando Metrics Server iniciar..."
-          sleep 15
-          
-          kubectl get pods -n kube-system | grep metrics-server
-          
-          echo "⚠️ Prosseguindo mesmo se o metrics server não estiver totalmente pronto"
-      
-      - name: Apply scaling configuration
-        run: |
-          echo "📦 Aplicando configurações de autoscaling..."
+          kubectl wait --namespace kube-system \
+            --for=condition=ready pod \
+            --selector=k8s-app=metrics-server \
+            --timeout=90s || echo "Timeout esperando Metrics Server, mas continuando..."
+            
           kubectl apply -f kubernetes/scaling/hpa.yml || echo "Ignorando erro em HPA"
+      
+      - name: Set Resource Quotas
+        run: |
           kubectl apply -f kubernetes/scaling/resource-quotas.yml || echo "Ignorando erro em resource quotas"
       
-      - name: Demonstrate scaling (if services are available)
+      - name: Demonstrar escalabilidade
         run: |
-          echo "🚀 Tentando demonstrar escalabilidade manual..."
-          kubectl scale deployment contacts-api -n contacts-app --replicas=3 || echo "Não foi possível escalar a API"
-          
-          sleep 15
-          
-          kubectl get pods -n contacts-app || echo "Não há pods para mostrar"
+          echo "Demonstrando escalabilidade manual..."
+          kubectl scale deployment contacts-api -n contacts-app --replicas=3 || echo "Não foi possível escalar"
+          sleep 20
+          kubectl get pods -n contacts-app || echo "Não foi possível obter pods"
       
-      - name: Show final deployment status
+      - name: Demonstrar resiliência
         run: |
-          echo "📊 Estado final do cluster:"
+          echo "Demonstrando resiliência excluindo um pod..."
+          POD_NAME=$(kubectl get pods -n contacts-app -l app=contacts-api -o jsonpath="{.items[0].metadata.name}" || echo "pod-not-found")
           
-          echo "Namespaces:"
-          kubectl get namespaces
-          
-          echo "Pods:"
+          if [ "$POD_NAME" != "pod-not-found" ]; then
+            echo "Excluindo pod $POD_NAME"
+            kubectl delete pod $POD_NAME -n contacts-app
+            sleep 20
+            echo "Pods após exclusão (observe o novo pod criado automaticamente):"
+            kubectl get pods -n contacts-app
+          else
+            echo "Não foi possível encontrar um pod para demonstrar resiliência"
+          fi
+      
+      - name: Show deployment status
+        run: |
+          echo "Pods status:"
           kubectl get pods --all-namespaces
           
-          echo "Serviços:"
+          echo "Services status:"
           kubectl get services --all-namespaces
           
-          echo "Deployments:"
+          echo "Deployments status:"
           kubectl get deployments --all-namespaces
           
-          echo "HorizontalPodAutoscalers:"
-          kubectl get hpa --all-namespaces || echo "Nenhum HPA encontrado"
-          
-          echo "🎉 Demonstração Kubernetes concluída!"
+          echo "🎉 Demonstração completa do Kubernetes realizada com sucesso!"

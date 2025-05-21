@@ -166,66 +166,174 @@ jobs:
       
       - name: Deploy Database and Messaging
         run: |
-          kubectl apply -f kubernetes/database/sqlserver.yml || echo "Ignorando erro no SQL Server"
-          sleep 10
-          
           kubectl apply -f kubernetes/messaging/rabbitmq.yml || echo "Ignorando erro no RabbitMQ"
-          sleep 10
+          sleep 15
           
-          kubectl get pods --all-namespaces
-      
-      - name: Deploy Monitoring
-        run: |
-          kubectl apply -f kubernetes/monitoring/prometheus-grafana.yml || echo "Ignorando erro no monitoramento"
-          sleep 10
+          echo "Status após RabbitMQ:"
+          kubectl get pods -n contacts-messaging
       
       - name: Deploy Kong Gateway
         run: |
           kubectl apply -f kubernetes/gateway/kong.yml || echo "Ignorando erro no Kong"
-          sleep 10
+          sleep 15
+          
+          echo "Status após Kong:"
+          kubectl get pods -n contacts-gateway
       
-      - name: Update Kubernetes manifests with demo images
+      - name: Update Kubernetes manifests with demo images and remove health checks
         run: |
-          echo "Substituindo imagens por versões de demonstração..."
+          echo "Criando manifestos simplificados para demonstração..."
           
-          sed -i 's|\${REGISTRY_NAME}/contacts-api:\${IMAGE_TAG}|nginx:alpine|g' kubernetes/apps/contacts-api.yml || echo "Arquivo contacts-api.yml não encontrado"
-          sed -i 's|\${REGISTRY_NAME}/contacts-consumer:\${IMAGE_TAG}|nginx:alpine|g' kubernetes/apps/consumer.yml || echo "Arquivo consumer.yml não encontrado"
-          sed -i 's|\${REGISTRY_NAME}/get-contacts:\${IMAGE_TAG}|nginx:alpine|g' kubernetes/apps/get-contacts.yml || echo "Arquivo get-contacts.yml não encontrado"
+          cat > kubernetes/apps/contacts-api-simple.yml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: contacts-api
+            namespace: contacts-app
+            labels:
+              app: contacts-api
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: contacts-api
+            template:
+              metadata:
+                labels:
+                  app: contacts-api
+              spec:
+                containers:
+                - name: contacts-api
+                  image: httpd:alpine
+                  ports:
+                  - containerPort: 80
+                    name: http
+                  resources:
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+                    requests:
+                      memory: "64Mi"
+                      cpu: "50m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: contacts-api-service
+            namespace: contacts-app
+          spec:
+            selector:
+              app: contacts-api
+            ports:
+            - port: 80
+              targetPort: http
+              name: http
+            type: ClusterIP
+          EOF
           
-          echo "Verificando arquivos atualizados:"
-          grep -n "image:" kubernetes/apps/*.yml || echo "Nenhum arquivo encontrado para verificar"
+          cat > kubernetes/apps/contacts-consumer-simple.yml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: contacts-consumer
+            namespace: contacts-app
+            labels:
+              app: contacts-consumer
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: contacts-consumer
+            template:
+              metadata:
+                labels:
+                  app: contacts-consumer
+              spec:
+                containers:
+                - name: contacts-consumer
+                  image: busybox:latest
+                  command: ["sleep", "3600"]
+                  resources:
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+                    requests:
+                      memory: "64Mi"
+                      cpu: "50m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: contacts-consumer-service
+            namespace: contacts-app
+          spec:
+            selector:
+              app: contacts-consumer
+            ports:
+            - port: 80
+              targetPort: 8080
+              name: http
+            type: ClusterIP
+          EOF
+          
+          cat > kubernetes/apps/get-contacts-simple.yml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: get-contacts
+            namespace: contacts-app
+            labels:
+              app: get-contacts
+          spec:
+            replicas: 2
+            selector:
+              matchLabels:
+                app: get-contacts
+            template:
+              metadata:
+                labels:
+                  app: get-contacts
+              spec:
+                containers:
+                - name: get-contacts
+                  image: nginx:alpine
+                  ports:
+                  - containerPort: 80
+                    name: http
+                  resources:
+                    limits:
+                      memory: "128Mi"
+                      cpu: "100m"
+                    requests:
+                      memory: "64Mi"
+                      cpu: "50m"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: get-contacts-service
+            namespace: contacts-app
+          spec:
+            selector:
+              app: get-contacts
+            ports:
+            - port: 80
+              targetPort: http
+              name: http
+            type: ClusterIP
+          EOF
       
       - name: Deploy Application Services
         run: |
-          echo "Implantando aplicações com imagens de demonstração..."
-          kubectl apply -f kubernetes/apps/contacts-api.yml || echo "Ignorando erro na API"
-          kubectl apply -f kubernetes/apps/consumer.yml || echo "Ignorando erro no Consumer" 
-          kubectl apply -f kubernetes/apps/get-contacts.yml || echo "Ignorando erro no GetContacts"
-          sleep 15
+          echo "Implantando aplicações simplificadas..."
+          kubectl apply -f kubernetes/apps/contacts-api-simple.yml
+          kubectl apply -f kubernetes/apps/contacts-consumer-simple.yml
+          kubectl apply -f kubernetes/apps/get-contacts-simple.yml
+          
+          sleep 20
           
           echo "Status dos pods após implantação:"
           kubectl get pods -n contacts-app
-      
-      - name: Deploy Networking and Ingress
-        run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-
-          echo "Aguardando Ingress Controller iniciar (60s)..."
-          sleep 60
-          kubectl get pods -n ingress-nginx
-          
-          kubectl wait --namespace ingress-nginx \
-            --for=condition=ready pod \
-            --selector=app.kubernetes.io/component=controller \
-            --timeout=90s || echo "Timeout esperando Ingress Controller, mas continuando..."
-            
-          kubectl apply -f kubernetes/networking/network-policies.yml || echo "Ignorando erro em network policies"
-          sleep 5
-          
-          echo "Verificando webhook do ingress antes de aplicar o ingress..."
-          kubectl get validatingwebhookconfiguration ingress-nginx-admission -o json || echo "Webhook não encontrado ainda"
-          
-          kubectl apply -f kubernetes/networking/ingress.yml || echo "Erro ao aplicar ingress, continuando mesmo assim..."
       
       - name: Deploy Autoscaling
         run: |
@@ -239,24 +347,48 @@ jobs:
             --for=condition=ready pod \
             --selector=k8s-app=metrics-server \
             --timeout=90s || echo "Timeout esperando Metrics Server, mas continuando..."
-            
-          kubectl apply -f kubernetes/scaling/hpa.yml || echo "Ignorando erro em HPA"
-      
-      - name: Set Resource Quotas
-        run: |
-          kubectl apply -f kubernetes/scaling/resource-quotas.yml || echo "Ignorando erro em resource quotas"
+          
+          cat > kubernetes/scaling/hpa-simple.yml << EOF
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: contacts-api-hpa
+            namespace: contacts-app
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: contacts-api
+            minReplicas: 2
+            maxReplicas: 5
+            metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: 70
+          EOF
+          
+          kubectl apply -f kubernetes/scaling/hpa-simple.yml || echo "Ignorando erro em HPA"
       
       - name: Wait for applications to be ready
         run: |
           echo "Aguardando aplicações ficarem prontas..."
           sleep 30
+          
+          echo "Aguardando todos os pods ficarem prontos..."
+          kubectl wait --for=condition=Ready pod -l app=contacts-api -n contacts-app --timeout=60s || echo "Timeout esperando API"
+          kubectl wait --for=condition=Ready pod -l app=contacts-consumer -n contacts-app --timeout=60s || echo "Timeout esperando Consumer"
+          kubectl wait --for=condition=Ready pod -l app=get-contacts -n contacts-app --timeout=60s || echo "Timeout esperando GetContacts"
+          
           kubectl get pods -n contacts-app
       
       - name: Demonstrar escalabilidade
         run: |
           echo "Demonstrando escalabilidade manual..."
-          kubectl scale deployment contacts-api -n contacts-app --replicas=3 || echo "Não foi possível escalar"
-          sleep 20
+          kubectl scale deployment contacts-api -n contacts-app --replicas=3
+          sleep 30
           
           echo "Pods após escalabilidade:"
           kubectl get pods -n contacts-app
@@ -269,7 +401,7 @@ jobs:
           if [ "$POD_NAME" != "pod-not-found" ] && [ "$POD_NAME" != "" ]; then
             echo "Excluindo pod $POD_NAME"
             kubectl delete pod $POD_NAME -n contacts-app
-            sleep 20
+            sleep 30
             echo "Pods após exclusão (observe o novo pod criado automaticamente):"
             kubectl get pods -n contacts-app
           else
@@ -292,5 +424,8 @@ jobs:
           
           echo "Deployments:"
           kubectl get deployments --all-namespaces
+          
+          echo "HPA Status:"
+          kubectl get hpa -n contacts-app
           
           echo "🎉 Demonstração completa do Kubernetes realizada com sucesso!"

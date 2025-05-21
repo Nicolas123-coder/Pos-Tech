@@ -1,57 +1,193 @@
-name: .NET CI/CD
+name: Build and Deploy to Kubernetes
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_USERNAME: ${{ github.actor }}
+  REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
-    services:
-      sql-server:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: Y
-          SA_PASSWORD: YourStrong@Passw0rd
-        ports:
-          - 1433:1433
-
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Aguardar SQL Server ficar pronto
-        run: |
-          echo "Esperando SQL Server iniciar..."
-          for i in {1..10}; do
-            STATUS=$(docker exec $(docker ps -q -f ancestor=mcr.microsoft.com/mssql/server:2022-latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" -b -1 2>&1 || echo "erro")
-            if [[ "$STATUS" != "erro" ]]; then
-              echo "SQL Server está pronto!"
-              exit 0
-            fi
-            echo "Tentativa $i - SQL Server ainda não está pronto, aguardando..."
-            sleep 5
-          done
-          echo "SQL Server não ficou pronto a tempo"
-          exit 1
-
+      - uses: actions/checkout@v4
+      
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'
-
+          dotnet-version: 8.0.x
+      
       - name: Restore dependencies
-        working-directory: ./Pos-Tech
-        run: dotnet restore
-
+        run: dotnet restore ./Pos-Tech/Pos-Tech.sln
+      
       - name: Build
-        working-directory: ./Pos-Tech
-        run: dotnet build --no-restore
+        run: dotnet build ./Pos-Tech/Pos-Tech.sln --no-restore
+      
+      - name: Test
+        run: dotnet test ./Pos-Tech/Tests/Tests.csproj --no-build --verbosity normal
 
-      - name: Run tests
-        working-directory: ./Pos-Tech
-        run: dotnet test --no-build --verbosity normal
-        env:
-          ConnectionStrings__DefaultConnection: "Server=localhost;Database=ContactsDB;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;MultipleActiveResultSets=true;ConnectRetryCount=5;ConnectRetryInterval=10"
+  build-and-push-images:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Extract metadata (tags, labels) for API
+        id: meta-api
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/contacts-api
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            latest
+      
+      - name: Build and push API image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./Pos-Tech
+          file: ./Pos-Tech/API/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for Consumer
+        id: meta-consumer
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/contacts-consumer
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            latest
+      
+      - name: Build and push Consumer image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./Pos-Tech
+          file: ./Pos-Tech/Consumer/Dockerfile
+          push: true
+          tags: ${{ steps.meta-consumer.outputs.tags }}
+          labels: ${{ steps.meta-consumer.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for GetContacts
+        id: meta-getcontacts
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/get-contacts
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            latest
+      
+      - name: Build and push GetContacts image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./Pos-Tech
+          file: ./Pos-Tech/GetContacts/Dockerfile
+          push: true
+          tags: ${{ steps.meta-getcontacts.outputs.tags }}
+          labels: ${{ steps.meta-getcontacts.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: azure/k8s-set-context@v1
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      
+      - name: Create namespaces if not exists
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+      
+      - name: Deploy ConfigMaps and Secrets
+        run: |
+          kubectl apply -f kubernetes/configmaps.yaml
+          kubectl apply -f kubernetes/secrets.yaml
+      
+      - name: Deploy Persistent Volumes
+        run: |
+          kubectl apply -f kubernetes/persistent-volumes.yaml
+      
+      - name: Deploy Database and Messaging
+        run: |
+          kubectl apply -f kubernetes/sqlserver.yaml
+          kubectl apply -f kubernetes/rabbitmq.yaml
+      
+      - name: Deploy Monitoring
+        run: |
+          kubectl apply -f kubernetes/prometheus-grafana.yaml
+      
+      - name: Deploy Kong Gateway
+        run: |
+          kubectl apply -f kubernetes/kong.yaml
+      
+      - name: Update Kubernetes manifests with image tags
+        run: |
+          REGISTRY="${{ env.REGISTRY }}/${{ github.repository }}"
+          IMAGE_TAG="sha-$(git rev-parse --short HEAD)"
+          
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/contacts-api.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/contacts-api.yaml
+          
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/consumer.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/consumer.yaml
+          
+          sed -i "s|\${REGISTRY_NAME}|$REGISTRY|g" kubernetes/get-contacts.yaml
+          sed -i "s|\${IMAGE_TAG}|$IMAGE_TAG|g" kubernetes/get-contacts.yaml
+      
+      - name: Deploy Application Services
+        run: |
+          kubectl apply -f kubernetes/contacts-api.yaml
+          kubectl apply -f kubernetes/consumer.yaml
+          kubectl apply -f kubernetes/get-contacts.yaml
+      
+      - name: Deploy Networking and Ingress
+        run: |
+          kubectl apply -f kubernetes/ingress.yaml
+          kubectl apply -f kubernetes/network-policies.yaml
+      
+      - name: Deploy Autoscaling
+        run: |
+          kubectl apply -f kubernetes/hpa.yaml
+      
+      - name: Set Resource Quotas
+        run: |
+          kubectl apply -f kubernetes/resource-quotas.yaml
+      
+      - name: Wait for deployments to be ready
+        run: |
+          kubectl wait --for=condition=Available --timeout=300s deployment/contacts-api -n contacts-app
+          kubectl wait --for=condition=Available --timeout=300s deployment/contacts-consumer -n contacts-app
+          kubectl wait --for=condition=Available --timeout=300s deployment/get-contacts -n contacts-app

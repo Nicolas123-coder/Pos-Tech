@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contacts-app
+  labels:
+    app: contacts-app
+    tier: application
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contacts-monitoring
+  labels:
+    app: contacts-app
+    tier: monitoring
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contacts-database
+  labels:
+    app: contacts-app
+    tier: database
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contacts-messaging
+  labels:
+    app: contacts-app
+    tier: messaging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: contacts-gateway
+  labels:
+    app: contacts-app
+    tier: gateway

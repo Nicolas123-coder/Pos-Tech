@@ -1,0 +1,188 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-postgres
+  namespace: contacts-gateway
+  labels:
+    app: kong-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-postgres
+  template:
+    metadata:
+      labels:
+        app: kong-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: kong
+        - name: POSTGRES_DB
+          value: kong
+        - name: POSTGRES_PASSWORD
+          value: kong
+        volumeMounts:
+        - name: kong-postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+          requests:
+            memory: "128Mi"
+            cpu: "150m"
+      volumes:
+      - name: kong-postgres-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-postgres
+  namespace: contacts-gateway
+spec:
+  selector:
+    app: kong-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kong-migrations
+  namespace: contacts-gateway
+spec:
+  template:
+    metadata:
+      name: kong-migrations
+    spec:
+      containers:
+      - name: kong-migrations
+        image: kong:3.4
+        command: [ "/bin/sh", "-c", "kong migrations bootstrap" ]
+        env:
+        - name: KONG_DATABASE
+          value: postgres
+        - name: KONG_PG_HOST
+          value: kong-postgres
+        - name: KONG_PG_USER
+          value: kong
+        - name: KONG_PG_PASSWORD
+          value: kong
+        - name: KONG_PG_DATABASE
+          value: kong
+      restartPolicy: OnFailure
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: contacts-gateway
+  labels:
+    app: kong
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+      - name: kong
+        image: kong:3.4
+        ports:
+        - containerPort: 8000
+          name: proxy
+        - containerPort: 8001
+          name: admin-api
+        - containerPort: 8443
+          name: proxy-ssl
+        - containerPort: 8444
+          name: admin-ssl
+        env:
+        - name: KONG_DATABASE
+          value: postgres
+        - name: KONG_PG_HOST
+          value: kong-postgres
+        - name: KONG_PG_USER
+          value: kong
+        - name: KONG_PG_PASSWORD
+          value: kong
+        - name: KONG_PG_DATABASE
+          value: kong
+        - name: KONG_PROXY_ACCESS_LOG
+          value: /dev/stdout
+        - name: KONG_ADMIN_ACCESS_LOG
+          value: /dev/stdout
+        - name: KONG_PROXY_ERROR_LOG
+          value: /dev/stderr
+        - name: KONG_ADMIN_ERROR_LOG
+          value: /dev/stderr
+        - name: KONG_ADMIN_LISTEN
+          value: 0.0.0.0:8001
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8001
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8001
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: contacts-gateway
+spec:
+  selector:
+    app: kong
+  ports:
+  - name: proxy
+    port: 8000
+    targetPort: 8000
+  - name: proxy-ssl
+    port: 8443
+    targetPort: 8443
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin
+  namespace: contacts-gateway
+spec:
+  selector:
+    app: kong
+  ports:
+  - name: admin-api
+    port: 8001
+    targetPort: 8001
+  - name: admin-ssl
+    port: 8444
+    targetPort: 8444
+  type: ClusterIP

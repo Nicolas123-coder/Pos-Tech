@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: contacts-app
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  APPLY_MIGRATIONS: "true"
+  Prometheus__MetricsPath: "/metrics"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: contacts-database
+data:
+  ACCEPT_EULA: "Y"
+  MSSQL_DATABASE: "ContactsDb"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connection-strings
+  namespace: contacts-app
+data:
+  DefaultConnection: "Server=sql-server-service.contacts-database;Database=ContactsDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: contacts-messaging
+data:
+  RABBITMQ_DEFAULT_USER: "guest"
+  RABBITMQ_DEFAULT_PASS: "guest"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: contacts-monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    scrape_configs:
+      - job_name: 'contacts-api'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - contacts-app
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: contacts-api
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: metrics
+            action: keep
+      
+      - job_name: 'consumer'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - contacts-app
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: contacts-consumer
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            regex: metrics
+            action: keep
+            
+      - job_name: 'rabbitmq'
+        static_configs:
+          - targets: ['rabbitmq-exporter-service.contacts-messaging:9419']
+        scrape_interval: 15s

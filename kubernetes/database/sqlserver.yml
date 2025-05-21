@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sql-server
+  namespace: contacts-database
+  labels:
+    app: sql-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sql-server
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: sql-server
+    spec:
+      containers:
+      - name: sql-server
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        ports:
+        - containerPort: 1433
+          name: sql-port
+        env:
+        - name: ACCEPT_EULA
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: ACCEPT_EULA
+        - name: MSSQL_SA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mssql-secret
+              key: SA_PASSWORD
+        - name: MSSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: MSSQL_DATABASE
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+          requests:
+            memory: "1Gi"
+            cpu: "0.5"
+        volumeMounts:
+        - name: sqlserver-data
+          mountPath: /var/opt/mssql
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "pgrep sqlservr"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "pgrep sqlservr"]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: sqlserver-data
+        persistentVolumeClaim:
+          claimName: sqlserver-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sql-server-service
+  namespace: contacts-database
+spec:
+  selector:
+    app: sql-server
+  ports:
+  - port: 1433
+    targetPort: sql-port
+  type: ClusterIP

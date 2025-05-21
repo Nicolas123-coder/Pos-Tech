@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Prometheus;
 using Infrastructure.Messaging;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -40,6 +41,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddMetrics();
 builder.Services.AddCustomMetrics();
+builder.Services.AddCustomHealthChecks(connectionString);
 
 var app = builder.Build();
 
@@ -87,20 +89,18 @@ if (builder.Configuration.GetValue<bool>("APPLY_MIGRATIONS", false))
     }
 }
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Contacts API V1");
-        c.RoutePrefix = string.Empty;
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Contacts API V1");
+    c.RoutePrefix = string.Empty;
+});
 
 app.UseMetricServer();
 app.UseHttpMetrics();
 app.UseRouting();
 app.UseCustomMetrics();
+app.UseCustomHealthChecks();
 app.UseAuthorization();
 app.MapControllers();
 

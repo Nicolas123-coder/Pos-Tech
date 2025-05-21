@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: get-contacts
+  namespace: contacts-app
+  labels:
+    app: get-contacts
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: get-contacts
+  template:
+    metadata:
+      labels:
+        app: get-contacts
+    spec:
+      containers:
+      - name: get-contacts
+        image: ${REGISTRY_NAME}/get-contacts:${IMAGE_TAG}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ASPNETCORE_ENVIRONMENT
+        - name: ConnectionStrings__DefaultConnection
+          valueFrom:
+            configMapKeyRef:
+              name: connection-strings
+              key: DefaultConnection
+        resources:
+          limits:
+            memory: "384Mi"
+            cpu: "300m"
+          requests:
+            memory: "192Mi"
+            cpu: "150m"
+        livenessProbe:
+          httpGet:
+            path: /api/contacts
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/contacts
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: get-contacts-service
+  namespace: contacts-app
+spec:
+  selector:
+    app: get-contacts
+  ports:
+  - port: 80
+    targetPort: http
+    name: http
+  type: ClusterIP

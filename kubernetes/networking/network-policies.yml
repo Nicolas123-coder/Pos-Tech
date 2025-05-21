@@ -1,0 +1,103 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-contacts-api
+  namespace: contacts-app
+spec:
+  podSelector:
+    matchLabels:
+      app: contacts-api
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          app: contacts-app
+    - namespaceSelector:
+        matchLabels:
+          tier: gateway
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 9090
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 1433
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: messaging
+    ports:
+    - protocol: TCP
+      port: 5672
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          app: contacts-app
+    ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-consumer
+  namespace: contacts-app
+spec:
+  podSelector:
+    matchLabels:
+      app: contacts-consumer
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          tier: monitoring
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 1433
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: messaging
+    ports:
+    - protocol: TCP
+      port: 5672
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-get-contacts
+  namespace: contacts-app
+spec:
+  podSelector:
+    matchLabels:
+      app: get-contacts
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          app: contacts-app
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          tier: database
+    ports:
+    - protocol: TCP
+      port: 1433
